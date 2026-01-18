@@ -1,0 +1,3938 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CESTIS - School Fee Management System</title>
+    
+    <!-- External Libraries -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            /* CESTI Colors */
+            --primary-blue: #0D47A1;
+            --light-blue: #1565C0;
+            --soft-blue: #E3F2FD;
+            --light-green: #A8D5A5;
+            --medium-green: #66BB6A;
+            --dark-green: #1B5E20;
+            
+            /* Light mode colors */
+            --bg-primary: #E3F2FD;
+            --bg-secondary: #BBDEFB;
+            --bg-card: #ffffff;
+            --text-primary: #2C3E50;
+            --text-secondary: #7f8c8d;
+            --border-color: #e0e0e0;
+            --table-hover: #f8f9fa;
+            --shadow: rgba(0, 0, 0, 0.1);
+        }
+
+        body.dark-mode {
+            --bg-primary: #1a1a2e;
+            --bg-secondary: #16213e;
+            --bg-card: #0f3460;
+            --text-primary: #e0e0e0;
+            --text-secondary: #a0a0a0;
+            --border-color: #2d4059;
+            --table-hover: #16213e;
+            --shadow: rgba(0, 0, 0, 0.3);
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: var(--bg-primary);
+            min-height: 100vh;
+            padding: 1rem;
+            color: var(--text-primary);
+            transition: background 0.3s ease, color 0.3s ease;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        /* Header Styles */
+        .header {
+            background: var(--bg-card);
+            padding: 2rem;
+            border-radius: 1rem;
+            margin-bottom: 1.5rem;
+            box-shadow: 0 4px 6px var(--shadow);
+            text-align: center;
+            position: relative;
+        }
+
+        .header-logo {
+            max-width: 120px;
+            margin: 0 auto 1rem;
+            display: block;
+        }
+
+        .header h1 {
+            color: var(--primary-blue);
+            font-size: 1.8rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .header .tagline {
+            color: var(--medium-green);
+            font-size: 1.1rem;
+            font-weight: 600;
+            margin-bottom: 0.25rem;
+        }
+
+        .header .subtitle {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+        }
+
+        /* Dark Mode Toggle */
+        .theme-toggle-btn {
+            background: var(--primary-blue);
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 0.5rem;
+            cursor: pointer;
+            font-size: 0.9rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            transition: all 0.3s ease;
+        }
+
+        .theme-toggle-btn:hover {
+            background: var(--light-blue);
+            transform: translateY(-2px);
+        }
+
+        /* Navigation Tabs */
+        .nav-tabs {
+            display: flex;
+            gap: 0.5rem;
+            margin-bottom: 1.5rem;
+            flex-wrap: wrap;
+        }
+
+        .nav-tab {
+            background: var(--bg-card);
+            border: none;
+            padding: 1rem 2rem;
+            border-radius: 0.5rem;
+            cursor: pointer;
+            font-size: 1rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            box-shadow: 0 2px 4px var(--shadow);
+            transition: all 0.3s ease;
+        }
+
+        .nav-tab:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px var(--shadow);
+        }
+
+        .nav-tab.active {
+            background: var(--primary-blue);
+            color: white;
+        }
+
+        .module {
+            display: none;
+            background: var(--bg-card);
+            border-radius: 1rem;
+            padding: 2rem;
+            box-shadow: 0 4px 6px var(--shadow);
+            min-height: 600px;
+        }
+
+        .module.active {
+            display: block;
+        }
+
+        /* Stats Grid */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .stat-card {
+            background: var(--light-green);
+            color: var(--dark-green);
+            padding: 1.5rem;
+            border-radius: 0.75rem;
+            box-shadow: 0 4px 6px var(--shadow);
+            transition: transform 0.3s ease;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-5px);
+        }
+
+        .stat-card h3 {
+            font-size: 0.9rem;
+            margin-bottom: 0.5rem;
+            opacity: 0.9;
+        }
+
+        .stat-card .value {
+            font-size: 2rem;
+            font-weight: bold;
+        }
+
+        /* Form Styles */
+        .form-section {
+            background: var(--bg-primary);
+            padding: 1.5rem;
+            border-radius: 0.75rem;
+            margin-bottom: 2rem;
+        }
+
+        .form-section h2 {
+            color: var(--primary-blue);
+            margin-bottom: 1rem;
+            font-size: 1.5rem;
+        }
+
+        .form-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .form-group label {
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
+            padding: 0.75rem;
+            border: 1px solid var(--border-color);
+            border-radius: 0.5rem;
+            font-size: 1rem;
+            background: var(--bg-card);
+            color: var(--text-primary);
+        }
+
+        .form-group input:focus,
+        .form-group select:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: var(--primary-blue);
+            box-shadow: 0 0 0 3px rgba(13, 71, 161, 0.1);
+        }
+
+        /* File Upload Area */
+        .file-upload-area {
+            border: 2px dashed var(--border-color);
+            border-radius: 0.5rem;
+            padding: 2rem;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            background: var(--bg-card);
+        }
+
+        .file-upload-area:hover {
+            border-color: var(--primary-blue);
+            background: var(--bg-primary);
+        }
+
+        .file-upload-area.dragover {
+            border-color: var(--medium-green);
+            background: var(--soft-blue);
+        }
+
+        .uploaded-files-list {
+            margin-top: 1rem;
+            padding: 1rem;
+            background: var(--bg-primary);
+            border-radius: 0.5rem;
+        }
+
+        .file-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.5rem;
+            margin-bottom: 0.5rem;
+            background: var(--bg-card);
+            border-radius: 0.25rem;
+        }
+
+        /* Button Styles */
+        .btn {
+            background: var(--primary-blue);
+            color: white;
+            border: none;
+            padding: 0.75rem 2rem;
+            border-radius: 0.5rem;
+            cursor: pointer;
+            font-size: 1rem;
+            font-weight: 600;
+            box-shadow: 0 2px 4px var(--shadow);
+            transition: all 0.3s ease;
+        }
+
+        .btn:hover {
+            background: var(--light-blue);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px var(--shadow);
+        }
+
+        .btn-secondary {
+            background: #6c757d;
+        }
+
+        .btn-secondary:hover {
+            background: #5a6268;
+        }
+
+        .btn-success {
+            background: #28a745;
+        }
+
+        .btn-success:hover {
+            background: #218838;
+        }
+
+        .btn-danger {
+            background: #dc3545;
+        }
+
+        .btn-danger:hover {
+            background: #c82333;
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+        }
+
+        /* Table Styles */
+        .table-container {
+            overflow-x: auto;
+            margin-top: 1rem;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: var(--bg-card);
+        }
+
+        th {
+            background: var(--primary-blue);
+            color: white;
+            padding: 1rem;
+            text-align: left;
+            font-weight: 600;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+
+        td {
+            padding: 1rem;
+            border-bottom: 1px solid var(--border-color);
+            color: var(--text-primary);
+        }
+
+        tr:hover {
+            background: var(--table-hover);
+        }
+
+        /* Search and Filter */
+        .search-filter {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+            flex-wrap: wrap;
+        }
+
+        .search-filter input,
+        .search-filter select {
+            padding: 0.75rem;
+            border: 1px solid var(--border-color);
+            border-radius: 0.5rem;
+            font-size: 1rem;
+            flex: 1;
+            min-width: 200px;
+            background: var(--bg-card);
+            color: var(--text-primary);
+        }
+
+        /* Status Badges */
+        .status-badge {
+            padding: 0.25rem 0.75rem;
+            border-radius: 1rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+
+        .status-paid {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .status-partial {
+            background: #fff3cd;
+            color: #856404;
+        }
+
+        .status-outstanding {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        body.dark-mode .status-paid {
+            background: #1e4620;
+            color: #5cb85c;
+        }
+
+        body.dark-mode .status-partial {
+            background: #4a3f1a;
+            color: #ffc107;
+        }
+
+        body.dark-mode .status-outstanding {
+            background: #4a1e1e;
+            color: #dc3545;
+        }
+
+        /* Action Buttons */
+        .action-btn {
+            padding: 0.5rem 1rem;
+            margin: 0 0.25rem;
+            border: none;
+            border-radius: 0.25rem;
+            cursor: pointer;
+            font-size: 0.85rem;
+            font-weight: 600;
+            transition: all 0.2s ease;
+        }
+
+        /* Modal Styles */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .modal.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background: var(--bg-card);
+            padding: 2rem;
+            border-radius: 1rem;
+            max-width: 800px;
+            width: 90%;
+            max-height: 90vh;
+            overflow-y: auto;
+            box-shadow: 0 10px 30px var(--shadow);
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+        }
+
+        .modal-header h2 {
+            color: var(--primary-blue);
+        }
+
+        .close-btn {
+            background: none;
+            border: none;
+            font-size: 2rem;
+            cursor: pointer;
+            color: var(--text-secondary);
+        }
+
+        .close-btn:hover {
+            color: var(--text-primary);
+        }
+
+        /* Chart Container */
+        .chart-container {
+            background: var(--bg-card);
+            padding: 1.5rem;
+            border-radius: 0.75rem;
+            margin-bottom: 1.5rem;
+            box-shadow: 0 2px 4px var(--shadow);
+        }
+
+        .chart-container h2 {
+            color: var(--primary-blue);
+            margin-bottom: 1rem;
+        }
+
+        /* Month Cards for Reports */
+        .months-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 1.5rem;
+            margin-top: 2rem;
+        }
+
+        .month-card {
+            background: var(--bg-card);
+            border: 2px solid var(--border-color);
+            border-radius: 0.75rem;
+            padding: 1.5rem;
+            transition: all 0.3s ease;
+        }
+
+        .month-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 5px 15px var(--shadow);
+        }
+
+        .month-card.has-data {
+            border-color: var(--medium-green);
+        }
+
+        .month-header {
+            font-size: 1.2rem;
+            font-weight: bold;
+            color: var(--primary-blue);
+            margin-bottom: 1rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .month-stats {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 1rem;
+        }
+
+        .month-stat {
+            text-align: center;
+        }
+
+        .month-stat-label {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            margin-bottom: 0.25rem;
+        }
+
+        .month-stat-value {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: var(--text-primary);
+        }
+
+        /* Payment History */
+        .payment-item {
+            background: var(--bg-primary);
+            padding: 1rem;
+            border-radius: 0.5rem;
+            margin-bottom: 0.5rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        /* Print Styles */
+        @media print {
+            body {
+                background: white;
+            }
+
+            .nav-tabs,
+            .btn,
+            .action-btn,
+            .theme-toggle {
+                display: none !important;
+            }
+
+            .container {
+                max-width: 100%;
+            }
+
+            .module {
+                display: block !important;
+            }
+        }
+
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            .header h1 {
+                font-size: 1.4rem;
+            }
+
+            .stats-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .form-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .nav-tabs {
+                flex-direction: column;
+            }
+
+            .nav-tab {
+                width: 100%;
+            }
+        }
+
+        /* ============================================
+           LOGIN PAGE STYLES
+           ============================================ */
+        .login-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+            background: linear-gradient(135deg, #0D47A1 0%, #66BB6A 100%);
+        }
+
+        .login-box {
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 15px 35px rgba(0,0,0,0.3);
+            padding: 40px;
+            width: 100%;
+            max-width: 450px;
+            animation: slideUp 0.5s ease;
+        }
+
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .login-header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .login-title {
+            font-size: 28px;
+            color: #0D47A1;
+            margin-bottom: 10px;
+        }
+
+        .login-subtitle {
+            color: #666;
+            font-size: 14px;
+            margin-bottom: 5px;
+        }
+
+        .input-group {
+            margin-bottom: 20px;
+        }
+
+        .input-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: #333;
+            font-weight: 500;
+            font-size: 14px;
+        }
+
+        .login-input {
+            width: 100%;
+            padding: 12px 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: all 0.3s ease;
+        }
+
+        .login-input:focus {
+            outline: none;
+            border-color: #0D47A1;
+            box-shadow: 0 0 0 3px rgba(13, 71, 161, 0.1);
+        }
+
+        .login-btn {
+            width: 100%;
+            padding: 14px;
+            background: linear-gradient(135deg, #0D47A1 0%, #66BB6A 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s ease;
+        }
+
+        .login-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(13, 71, 161, 0.4);
+        }
+
+        .login-btn:active {
+            transform: translateY(0);
+        }
+
+        .login-error {
+            background: #fee;
+            color: #c33;
+            padding: 12px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+            font-size: 14px;
+            display: none;
+            border-left: 4px solid #c33;
+        }
+
+        .login-footer {
+            text-align: center;
+            margin-top: 25px;
+            padding-top: 20px;
+            border-top: 1px solid #e0e0e0;
+            color: #666;
+            font-size: 13px;
+        }
+
+        /* Logout button in header */
+        .logout-btn {
+            background: #dc3545;
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 0.5rem;
+            cursor: pointer;
+            font-size: 0.9rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            transition: all 0.3s ease;
+        }
+
+        .logout-btn:hover {
+            background: #c82333;
+            transform: translateY(-2px);
+        }
+
+        /* Update header logo to not overlap */
+        .header-logo {
+            max-width: 120px;
+            margin: 0 auto 1rem;
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <!-- Login Page -->
+    <div id="loginPage" class="login-container">
+        <div class="login-box">
+            <div class="login-header">
+                <img src="../uploads/CESTI_-_LOGO.png" alt="CESTIS Logo" style="max-width: 120px; margin: 0 auto 1rem; display: block;" onerror="this.style.display='none'">
+                <h1 class="login-title">CESTIS Login</h1>
+                <p class="login-subtitle">Community Educational and Skills Training Institute</p>
+                <p class="login-subtitle">and Services Limited</p>
+            </div>
+
+            <div class="login-error" id="loginError"></div>
+
+            <form onsubmit="handleLogin(event)">
+                <div class="input-group">
+                    <label>Username</label>
+                    <input type="text" id="loginUsername" class="login-input" required autocomplete="username">
+                </div>
+
+                <div class="input-group">
+                    <label>Password</label>
+                    <input type="password" id="loginPassword" class="login-input" required autocomplete="current-password">
+                </div>
+
+                <button type="submit" class="login-btn">Login</button>
+            </form>
+
+            <div class="login-footer">
+                <p>Secure Access Only</p>
+                <p style="margin-top: 0.5rem; font-size: 0.75rem;">Contact administrator for access issues</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Dashboard (Hidden until login) -->
+    <div id="mainDashboard" style="display: none;">
+    <div class="container">
+        <div class="header">
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1.5rem;">
+                <button class="logout-btn" onclick="handleLogout()">
+                    <span>🚪</span>
+                    <span>Logout</span>
+                </button>
+                <div style="display: flex; align-items: center; gap: 1rem;">
+                    <span id="currentUserDisplay" style="font-size: 0.9rem; color: var(--primary-blue); font-weight: 600;"></span>
+                    <button class="theme-toggle-btn" onclick="toggleDarkMode()">
+                        <span id="themeIcon">🌙</span>
+                        <span id="themeText">Dark Mode</span>
+                    </button>
+                </div>
+            </div>
+            <img src="../uploads/CESTI_-_LOGO.png" alt="CESTIS Logo" class="header-logo" onerror="this.style.display='none'">
+            <h1>COMMUNITY EDUCATIONAL AND SKILLS TRAINING INSTITUTE AND SERVICES LIMITED</h1>
+            <div class="tagline">EMPOWERING COMMUNITIES</div>
+            <div class="subtitle">School Fee Monitoring Dashboard</div>
+        </div>
+
+        <div class="nav-tabs">
+            <button class="nav-tab active" onclick="switchModule('dashboard')">📊 Dashboard</button>
+            <button class="nav-tab" onclick="switchModule('students')">👥 Students</button>
+            <button class="nav-tab" onclick="switchModule('payments')">💳 Payments</button>
+            <button class="nav-tab" onclick="switchModule('documents')">📁 Documents</button>
+            <button class="nav-tab" onclick="switchModule('feeStructure')">📋 Fee Structure</button>
+            <button class="nav-tab" onclick="switchModule('reports')">📈 Reports</button>
+            <button class="nav-tab" onclick="switchModule('import')">📥 Import/Export</button>
+            <button class="nav-tab" id="userManagementTab" onclick="switchModule('userManagement')" style="display: none;">👤 User Management</button>
+        </div>
+
+        <!-- Dashboard Module -->
+        <div id="dashboard" class="module active">
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <h3>Total Students</h3>
+                    <div class="value" id="totalStudents">0</div>
+                </div>
+                <div class="stat-card">
+                    <h3>Total Expected Fees</h3>
+                    <div class="value" id="totalExpected">$0.00</div>
+                </div>
+                <div class="stat-card">
+                    <h3>Total Collected</h3>
+                    <div class="value" id="totalCollected">$0.00</div>
+                </div>
+                <div class="stat-card">
+                    <h3>Total Outstanding</h3>
+                    <div class="value" id="totalOutstanding">$0.00</div>
+                </div>
+            </div>
+
+            <div class="chart-container">
+                <h2>Collection Rate by Skill Area</h2>
+                <div style="width: 8in; height: 8in; margin: 0 auto;">
+                    <canvas id="collectionChart"></canvas>
+                </div>
+            </div>
+
+            <div class="chart-container">
+                <h2>Payment Trends</h2>
+                <div style="width: 8in; height: 8in; margin: 0 auto;">
+                    <canvas id="trendChart"></canvas>
+                </div>
+            </div>
+
+            <div class="chart-container">
+                <h2>Recent Activity</h2>
+                <div id="recentActivity"></div>
+            </div>
+        </div>
+
+        <!-- Students Module -->
+        <div id="students" class="module">
+            <div class="form-section">
+                <h2>Add New Student</h2>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>Student Name *</label>
+                        <input type="text" id="studentName" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Student ID</label>
+                        <input type="text" id="studentId">
+                    </div>
+                    <div class="form-group">
+                        <label>Skill Area *</label>
+                        <select id="skillArea" required onchange="updateTuitionFee()">
+                            <option value="">Select Skill Area</option>
+                            <option value="WELDING L2">WELDING L2</option>
+                            <option value="WELDING L3">WELDING L3</option>
+                            <option value="ELECTRICAL L2">ELECTRICAL L2</option>
+                            <option value="ELECTRICAL L3">ELECTRICAL L3</option>
+                            <option value="HOSPITALITY SERVICES L2">HOSPITALITY SERVICES L2</option>
+                            <option value="COMMI CHEF L2">COMMI CHEF L2</option>
+                            <option value="BUSINESS ADMIN L2">BUSINESS ADMIN L2</option>
+                            <option value="BEAUTY THERAPY L2">BEAUTY THERAPY L2</option>
+                            <option value="COSMETOLOGY L2">COSMETOLOGY L2</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Tuition Fee</label>
+                        <input type="number" id="tuitionFee" step="0.01" readonly>
+                    </div>
+                    <div class="form-group">
+                        <label>Contact Number</label>
+                        <input type="tel" id="contactNumber">
+                    </div>
+                    <div class="form-group">
+                        <label>Email</label>
+                        <input type="email" id="email">
+                    </div>
+                    <div class="form-group">
+                        <label>Enrollment Date</label>
+                        <input type="date" id="enrollmentDate">
+                    </div>
+                </div>
+                <button class="btn" onclick="addStudent()">Add Student</button>
+            </div>
+
+            <div class="search-filter">
+                <input type="text" id="searchStudent" placeholder="🔍 Search by name or ID..." oninput="filterStudents()">
+                <select id="filterSkillArea" onchange="filterStudents()">
+                    <option value="">All Skill Areas</option>
+                    <option value="WELDING L2">WELDING L2</option>
+                    <option value="WELDING L3">WELDING L3</option>
+                    <option value="ELECTRICAL L2">ELECTRICAL L2</option>
+                    <option value="ELECTRICAL L3">ELECTRICAL L3</option>
+                    <option value="HOSPITALITY SERVICES L2">HOSPITALITY SERVICES L2</option>
+                    <option value="COMMI CHEF L2">COMMI CHEF L2</option>
+                    <option value="BUSINESS ADMIN L2">BUSINESS ADMIN L2</option>
+                    <option value="BEAUTY THERAPY L2">BEAUTY THERAPY L2</option>
+                    <option value="COSMETOLOGY L2">COSMETOLOGY L2</option>
+                </select>
+                <select id="filterPaymentStatus" onchange="filterStudents()">
+                    <option value="">All Payment Status</option>
+                    <option value="Fully Paid">Fully Paid</option>
+                    <option value="Partial Payment">Partial Payment</option>
+                    <option value="Outstanding">Outstanding</option>
+                </select>
+            </div>
+
+            <div class="table-container">
+                <table id="studentsTable">
+                    <thead>
+                        <tr>
+                            <th>Student ID</th>
+                            <th>Name</th>
+                            <th>Skill Area</th>
+                            <th>Tuition Fee</th>
+                            <th>Paid</th>
+                            <th>Balance</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="studentsTableBody">
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Payments Module -->
+        <div id="payments" class="module">
+            <div class="form-section">
+                <h2>Record Payment</h2>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>Select Student *</label>
+                        <select id="paymentStudentId" required onchange="loadStudentPaymentInfo()">
+                            <option value="">Select Student</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Payment Amount *</label>
+                        <input type="number" id="paymentAmount" step="0.01" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Payment Date *</label>
+                        <input type="date" id="paymentDate" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Payment Method</label>
+                        <select id="paymentMethod">
+                            <option value="Cash">Cash</option>
+                            <option value="Bank Transfer">Bank Transfer</option>
+                            <option value="Cheque">Cheque</option>
+                            <option value="Online">Online</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Term</label>
+                        <select id="paymentTerm">
+                            <option value="Term 1">Term 1</option>
+                            <option value="Term 2">Term 2</option>
+                            <option value="Term 3">Term 3</option>
+                            <option value="Term 4">Term 4</option>
+                            <option value="Term 5">Term 5</option>
+                            <option value="Term 6">Term 6</option>
+                            <option value="Term 7">Term 7</option>
+                            <option value="Term 8">Term 8</option>
+                            <option value="Term 9">Term 9</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Receipt Number</label>
+                        <input type="text" id="receiptNumber">
+                    </div>
+                    <div class="form-group">
+                        <label>Notes</label>
+                        <input type="text" id="paymentNotes">
+                    </div>
+                </div>
+                <div id="studentPaymentInfo" style="background: var(--bg-primary); padding: 1rem; border-radius: 0.5rem; margin-bottom: 1rem; display: none;">
+                    <strong>Current Balance:</strong> <span id="currentBalance">$0.00</span>
+                </div>
+                <button class="btn" onclick="recordPayment()">Record Payment</button>
+            </div>
+
+            <div class="search-filter">
+                <input type="text" id="searchPayment" placeholder="🔍 Search payments..." oninput="filterPayments()">
+                <input type="date" id="filterDateFrom" onchange="filterPayments()">
+                <input type="date" id="filterDateTo" onchange="filterPayments()">
+            </div>
+
+            <div class="table-container">
+                <table id="paymentsTable">
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Receipt #</th>
+                            <th>Student</th>
+                            <th>Skill Area</th>
+                            <th>Term</th>
+                            <th>Amount</th>
+                            <th>Method</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="paymentsTableBody">
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Documents Module -->
+        <div id="documents" class="module">
+            <h2 style="color: var(--primary-blue); margin-bottom: 1.5rem;">Student Documents Management</h2>
+            
+            <div class="btn-group" style="margin-bottom: 1.5rem;">
+                <button class="btn" onclick="viewAllDocuments()">📁 View All Student Documents</button>
+                <button class="btn btn-secondary" onclick="showUploadForm()">➕ Upload New Document</button>
+            </div>
+
+            <div class="form-section" id="uploadDocumentForm">
+                <h2>Upload Student Document</h2>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>Select Student *</label>
+                        <select id="docStudentId" required>
+                            <option value="">Select Student</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Document Type *</label>
+                        <select id="docType" onchange="handleDocTypeChange()">
+                            <option value="ID Card">ID Card</option>
+                            <option value="Birth Certificate">Birth Certificate</option>
+                            <option value="Medical Certificate">Medical Certificate</option>
+                            <option value="Proof of Address">Proof of Address</option>
+                            <option value="Transcript">Transcript</option>
+                            <option value="Application Form">Application Form</option>
+                            <option value="Parent Consent">Parent Consent</option>
+                            <option value="Police Record">Police Record</option>
+                            <option value="Custom">🖊️ Custom (Type your own)</option>
+                        </select>
+                    </div>
+                    <div class="form-group" id="customDocTypeGroup" style="display: none;">
+                        <label>Custom Document Type *</label>
+                        <input type="text" id="customDocType" placeholder="Enter document type...">
+                    </div>
+                </div>
+                
+                <div class="file-upload-area" id="fileUploadArea">
+                    <input type="file" id="fileInput" style="display: none;" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx" multiple onchange="handleFileSelect(event)">
+                    <div onclick="document.getElementById('fileInput').click()">
+                        <p style="font-size: 3rem; margin-bottom: 1rem;">📁</p>
+                        <p style="font-weight: bold; margin-bottom: 0.5rem;">Click to upload or drag and drop</p>
+                        <p style="font-size: 0.9rem; color: var(--text-secondary);">PDF, JPG, PNG, DOC (Max 10MB per file)</p>
+                    </div>
+                </div>
+
+                <div class="uploaded-files-list" id="uploadedFilesList" style="display: none;">
+                    <h3 style="margin-bottom: 1rem;">Selected Files:</h3>
+                    <div id="selectedFilesList"></div>
+                </div>
+
+                <button class="btn" onclick="uploadDocuments()" style="margin-top: 1rem;">📤 Upload Documents</button>
+            </div>
+
+            <div class="search-filter">
+                <input type="text" id="searchDocuments" placeholder="🔍 Search documents..." oninput="filterDocuments()">
+                <select id="filterDocStudent" onchange="filterDocuments()">
+                    <option value="">All Students</option>
+                </select>
+                <select id="filterDocType" onchange="filterDocuments()">
+                    <option value="">All Document Types</option>
+                </select>
+            </div>
+
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Date Uploaded</th>
+                            <th>Student</th>
+                            <th>Student ID</th>
+                            <th>Document Type</th>
+                            <th>File Name</th>
+                            <th>Size</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="documentsTableBody">
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Fee Structure Module -->
+        <div id="feeStructure" class="module">
+            <h2 style="color: var(--primary-blue); margin-bottom: 1.5rem;">Fee Structure by Skill Area</h2>
+            
+            <!-- Admin Controls -->
+            <div id="feeStructureAdminControls" style="display: none; margin-bottom: 2rem;">
+                <div class="form-section">
+                    <h2>Add New Skill Area</h2>
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label>Skill Area Name *</label>
+                            <input type="text" id="newSkillAreaName" placeholder="e.g., Digital Marketing">
+                        </div>
+                        <div class="form-group">
+                            <label>Total Tuition Fee ($) *</label>
+                            <input type="number" id="newSkillAreaFee" step="0.01" placeholder="e.g., 35000">
+                        </div>
+                        <div class="form-group">
+                            <label>Number of Terms *</label>
+                            <input type="number" id="newSkillAreaTerms" min="1" max="9" placeholder="e.g., 6">
+                        </div>
+                    </div>
+                    <button class="btn" onclick="addNewSkillArea()">➕ Add Skill Area</button>
+                </div>
+            </div>
+            
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Skill Area</th>
+                            <th>Total Tuition Fee</th>
+                            <th>Term 1</th>
+                            <th>Term 2</th>
+                            <th>Term 3</th>
+                            <th>Term 4</th>
+                            <th>Term 5</th>
+                            <th>Term 6</th>
+                            <th>Term 7</th>
+                            <th>Term 8</th>
+                            <th>Term 9</th>
+                            <th id="feeStructureActionsHeader" style="display: none;">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="feeStructureBody">
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Reports Module -->
+        <div id="reports" class="module">
+            <h2 style="color: var(--primary-blue); margin-bottom: 1rem;">Financial Reports</h2>
+            
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <h3>Collection Rate</h3>
+                    <div class="value" id="collectionRate">0%</div>
+                </div>
+                <div class="stat-card">
+                    <h3>Students with Outstanding Balance</h3>
+                    <div class="value" id="outstandingCount">0</div>
+                </div>
+                <div class="stat-card">
+                    <h3>Fully Paid Students</h3>
+                    <div class="value" id="paidCount">0</div>
+                </div>
+                <div class="stat-card">
+                    <h3>Average Payment per Student</h3>
+                    <div class="value" id="avgPayment">$0.00</div>
+                </div>
+            </div>
+
+            <div class="form-section">
+                <h2>Generate Report</h2>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>Report Type</label>
+                        <select id="reportType">
+                            <option value="all">All Students</option>
+                            <option value="outstanding">Outstanding Balances</option>
+                            <option value="fullypaid">Fully Paid</option>
+                            <option value="skillarea">By Skill Area</option>
+                            <option value="monthly">Monthly Breakdown</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="btn-group">
+                    <button class="btn" onclick="generateReport()">Generate Report</button>
+                    <button class="btn btn-secondary" onclick="exportToPDF()">📄 Export to PDF</button>
+                    <button class="btn btn-secondary" onclick="exportToExcel()">📊 Export to Excel</button>
+                    <button class="btn btn-secondary" onclick="window.print()">🖨️ Print Report</button>
+                </div>
+            </div>
+
+            <div id="reportOutput" class="table-container" style="margin-top: 1.5rem;"></div>
+
+            <!-- Monthly Breakdown -->
+            <div id="monthlyBreakdown" style="display: none;">
+                <h2 style="color: var(--primary-blue); margin-top: 2rem; margin-bottom: 1rem;">Monthly Payment Breakdown</h2>
+                <div class="months-grid" id="monthsGrid"></div>
+            </div>
+        </div>
+
+        <!-- Import/Export Module -->
+        <div id="import" class="module">
+            <h2 style="color: var(--primary-blue); margin-bottom: 1.5rem;">Data Import & Export</h2>
+            
+            <div class="form-section">
+                <h2>Import Student Data</h2>
+                <p style="margin-bottom: 1rem; color: var(--text-secondary);">
+                    Upload an Excel file (.xlsx) with student information. The file should have columns: 
+                    Student ID, Name, Skill Area, Contact Number, Email, Enrollment Date
+                </p>
+                
+                <div class="file-upload-area" id="importFileUploadArea">
+                    <input type="file" id="importFileInput" style="display: none;" accept=".xlsx,.xls" onchange="handleImportFile(event)">
+                    <div onclick="document.getElementById('importFileInput').click()">
+                        <p style="font-size: 3rem; margin-bottom: 1rem;">📊</p>
+                        <p style="font-weight: bold; margin-bottom: 0.5rem;">Click to select Excel file</p>
+                        <p style="font-size: 0.9rem; color: var(--text-secondary);">Supports .xlsx and .xls formats</p>
+                    </div>
+                </div>
+
+                <div id="importPreview" style="display: none; margin-top: 1rem;">
+                    <h3 style="margin-bottom: 1rem;">Preview Import Data:</h3>
+                    <div id="importPreviewTable"></div>
+                    <button class="btn" onclick="confirmImport()" style="margin-top: 1rem;">Confirm Import</button>
+                    <button class="btn btn-secondary" onclick="cancelImport()" style="margin-top: 1rem;">Cancel</button>
+                </div>
+            </div>
+
+            <div class="form-section">
+                <h2>Export Data</h2>
+                <div class="btn-group">
+                    <button class="btn" onclick="exportAllData('students')">📥 Export All Students</button>
+                    <button class="btn" onclick="exportAllData('payments')">📥 Export All Payments</button>
+                    <button class="btn" onclick="exportAllData('complete')">📥 Export Complete Report</button>
+                </div>
+            </div>
+
+            <div class="form-section">
+                <h2>Backup & Restore</h2>
+                <div class="btn-group">
+                    <button class="btn btn-success" onclick="backupData()">💾 Backup All Data</button>
+                    <button class="btn btn-secondary" onclick="document.getElementById('restoreFileInput').click()">📂 Restore from Backup</button>
+                    <input type="file" id="restoreFileInput" style="display: none;" accept=".json" onchange="restoreData(event)">
+                </div>
+                <p style="margin-top: 1rem; color: var(--text-secondary); font-size: 0.9rem;">
+                    ⚠️ Backup includes all students, payments, and documents. Restoring will overwrite existing data.
+                </p>
+            </div>
+        </div>
+
+        <!-- User Management Module (Admin Only) -->
+        <div id="userManagement" class="module">
+            <h2 style="color: var(--primary-blue); margin-bottom: 1.5rem;">User Management (Admin Only)</h2>
+            
+            <div class="form-section">
+                <h2>Add New User</h2>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>Full Name *</label>
+                        <input type="text" id="newUserFullName" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Username *</label>
+                        <input type="text" id="newUsername" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Password *</label>
+                        <input type="password" id="newPassword" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Role *</label>
+                        <select id="newUserRole" required>
+                            <option value="User">User (View & Record Data)</option>
+                            <option value="Manager">Manager (Full Access, No User Management)</option>
+                            <option value="Admin">Admin (Full Access)</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Email</label>
+                        <input type="email" id="newUserEmail">
+                    </div>
+                    <div class="form-group">
+                        <label>Department</label>
+                        <input type="text" id="newUserDepartment">
+                    </div>
+                </div>
+                <button class="btn" onclick="addNewUser()">➕ Add User</button>
+            </div>
+
+            <div class="search-filter">
+                <input type="text" id="searchUsers" placeholder="🔍 Search users..." oninput="filterUsers()">
+                <select id="filterUserRole" onchange="filterUsers()">
+                    <option value="">All Roles</option>
+                    <option value="User">User</option>
+                    <option value="Manager">Manager</option>
+                    <option value="Admin">Admin</option>
+                </select>
+            </div>
+
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Full Name</th>
+                            <th>Username</th>
+                            <th>Role</th>
+                            <th>Email</th>
+                            <th>Department</th>
+                            <th>Created Date</th>
+                            <th>Last Login</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="usersTableBody">
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    <!-- End of Main Dashboard -->
+
+    <!-- Student Details Modal -->
+    <div id="studentModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Student Details</h2>
+                <button class="close-btn" onclick="closeModal('studentModal')">&times;</button>
+            </div>
+            <div id="studentModalContent"></div>
+        </div>
+    </div>
+
+    <!-- Edit Student Modal -->
+    <div id="editStudentModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Edit Student Information</h2>
+                <button class="close-btn" onclick="closeModal('editStudentModal')">&times;</button>
+            </div>
+            <div id="editStudentContent">
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>Student Name *</label>
+                        <input type="text" id="editStudentName" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Student ID</label>
+                        <input type="text" id="editStudentId" readonly style="background: var(--bg-primary); cursor: not-allowed;">
+                    </div>
+                    <div class="form-group">
+                        <label>Skill Area *</label>
+                        <select id="editSkillArea" required onchange="updateEditTuitionFee()">
+                            <option value="">Select Skill Area</option>
+                            <option value="WELDING L2">WELDING L2</option>
+                            <option value="WELDING L3">WELDING L3</option>
+                            <option value="ELECTRICAL L2">ELECTRICAL L2</option>
+                            <option value="ELECTRICAL L3">ELECTRICAL L3</option>
+                            <option value="HOSPITALITY SERVICES L2">HOSPITALITY SERVICES L2</option>
+                            <option value="COMMI CHEF L2">COMMI CHEF L2</option>
+                            <option value="BUSINESS ADMIN L2">BUSINESS ADMIN L2</option>
+                            <option value="BEAUTY THERAPY L2">BEAUTY THERAPY L2</option>
+                            <option value="COSMETOLOGY L2">COSMETOLOGY L2</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Tuition Fee</label>
+                        <input type="number" id="editTuitionFee" step="0.01" readonly style="background: var(--bg-primary); cursor: not-allowed;">
+                    </div>
+                    <div class="form-group">
+                        <label>Contact Number</label>
+                        <input type="tel" id="editContactNumber">
+                    </div>
+                    <div class="form-group">
+                        <label>Email</label>
+                        <input type="email" id="editEmail">
+                    </div>
+                    <div class="form-group">
+                        <label>Enrollment Date</label>
+                        <input type="date" id="editEnrollmentDate">
+                    </div>
+                </div>
+                <div style="background: var(--bg-primary); padding: 1rem; border-radius: 0.5rem; margin: 1rem 0;">
+                    <p><strong>Total Paid:</strong> $<span id="editTotalPaid">0.00</span></p>
+                    <p><strong>Current Balance:</strong> $<span id="editBalance">0.00</span></p>
+                    <p><strong>Status:</strong> <span id="editStatus"></span></p>
+                </div>
+                <div class="btn-group">
+                    <button class="btn" onclick="saveStudentEdit()">💾 Save Changes</button>
+                    <button class="btn btn-secondary" onclick="closeModal('editStudentModal')">Cancel</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Payment Modal -->
+    <div id="editPaymentModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Edit Payment</h2>
+                <button class="close-btn" onclick="closeModal('editPaymentModal')">&times;</button>
+            </div>
+            <div id="editPaymentContent">
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>Student</label>
+                        <input type="text" id="editPaymentStudentName" readonly style="background: var(--bg-primary); cursor: not-allowed;">
+                    </div>
+                    <div class="form-group">
+                        <label>Payment Amount *</label>
+                        <input type="number" id="editPaymentAmount" step="0.01" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Payment Date *</label>
+                        <input type="date" id="editPaymentDate" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Payment Method</label>
+                        <select id="editPaymentMethod">
+                            <option value="Cash">Cash</option>
+                            <option value="Bank Transfer">Bank Transfer</option>
+                            <option value="Cheque">Cheque</option>
+                            <option value="Online">Online</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Term</label>
+                        <select id="editPaymentTerm">
+                            <option value="Term 1">Term 1</option>
+                            <option value="Term 2">Term 2</option>
+                            <option value="Term 3">Term 3</option>
+                            <option value="Term 4">Term 4</option>
+                            <option value="Term 5">Term 5</option>
+                            <option value="Term 6">Term 6</option>
+                            <option value="Term 7">Term 7</option>
+                            <option value="Term 8">Term 8</option>
+                            <option value="Term 9">Term 9</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Receipt Number</label>
+                        <input type="text" id="editReceiptNumber">
+                    </div>
+                    <div class="form-group">
+                        <label>Notes</label>
+                        <input type="text" id="editPaymentNotes">
+                    </div>
+                </div>
+                <div style="background: var(--bg-primary); padding: 1rem; border-radius: 0.5rem; margin: 1rem 0;">
+                    <p><strong>Original Amount:</strong> $<span id="editOriginalAmount">0.00</span></p>
+                    <p><strong>Student Balance:</strong> $<span id="editPaymentBalance">0.00</span></p>
+                </div>
+                <div class="btn-group">
+                    <button class="btn" onclick="savePaymentEdit()">💾 Save Changes</button>
+                    <button class="btn btn-secondary" onclick="closeModal('editPaymentModal')">Cancel</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit User Modal -->
+    <div id="editUserModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Edit User Information</h2>
+                <button class="close-btn" onclick="closeModal('editUserModal')">&times;</button>
+            </div>
+            <div id="editUserContent">
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>Full Name *</label>
+                        <input type="text" id="editUserFullName" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Username *</label>
+                        <input type="text" id="editUserUsername" required>
+                    </div>
+                    <div class="form-group">
+                        <label>New Password (leave blank to keep current)</label>
+                        <input type="password" id="editUserPassword" placeholder="Enter new password or leave blank">
+                    </div>
+                    <div class="form-group">
+                        <label>Role *</label>
+                        <select id="editUserRole" required>
+                            <option value="User">User (View & Record Data)</option>
+                            <option value="Manager">Manager (Full Access, No User Management)</option>
+                            <option value="Admin">Admin (Full Access)</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Email</label>
+                        <input type="email" id="editUserEmail">
+                    </div>
+                    <div class="form-group">
+                        <label>Department</label>
+                        <input type="text" id="editUserDepartment">
+                    </div>
+                </div>
+                <div style="background: var(--bg-primary); padding: 1rem; border-radius: 0.5rem; margin: 1rem 0;">
+                    <p><strong>User ID:</strong> <span id="editUserIdDisplay">-</span></p>
+                    <p><strong>Created:</strong> <span id="editUserCreatedDisplay">-</span></p>
+                    <p><strong>Last Login:</strong> <span id="editUserLastLoginDisplay">-</span></p>
+                </div>
+                <div class="btn-group">
+                    <button class="btn" onclick="saveUserEdit()">💾 Save Changes</button>
+                    <button class="btn btn-secondary" onclick="closeModal('editUserModal')">Cancel</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- View User Details Modal -->
+    <div id="viewUserModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>User Details</h2>
+                <button class="close-btn" onclick="closeModal('viewUserModal')">&times;</button>
+            </div>
+            <div id="viewUserContent" style="padding: 1rem;">
+                <div style="background: var(--bg-primary); padding: 1.5rem; border-radius: 0.5rem; margin-bottom: 1rem;">
+                    <h3 style="margin-bottom: 1rem; color: var(--primary-blue);">Account Information</h3>
+                    <div style="display: grid; grid-template-columns: 150px 1fr; gap: 0.75rem;">
+                        <strong>User ID:</strong>
+                        <span id="viewUserId">-</span>
+                        
+                        <strong>Full Name:</strong>
+                        <span id="viewUserFullName">-</span>
+                        
+                        <strong>Username:</strong>
+                        <span id="viewUserUsername">-</span>
+                        
+                        <strong>Password:</strong>
+                        <span id="viewUserPassword" style="font-family: monospace; letter-spacing: 2px;">••••••••</span>
+                        <span></span>
+                        <button class="btn btn-secondary" onclick="togglePasswordVisibility()" style="width: fit-content; padding: 0.3rem 0.8rem; font-size: 0.85rem;">
+                            <span id="togglePasswordIcon">👁️</span> <span id="togglePasswordText">Show Password</span>
+                        </button>
+                        
+                        <strong>Role:</strong>
+                        <span id="viewUserRole">-</span>
+                        
+                        <strong>Email:</strong>
+                        <span id="viewUserEmail">-</span>
+                        
+                        <strong>Department:</strong>
+                        <span id="viewUserDepartment">-</span>
+                    </div>
+                </div>
+                
+                <div style="background: var(--bg-primary); padding: 1.5rem; border-radius: 0.5rem; margin-bottom: 1rem;">
+                    <h3 style="margin-bottom: 1rem; color: var(--primary-blue);">Activity Information</h3>
+                    <div style="display: grid; grid-template-columns: 150px 1fr; gap: 0.75rem;">
+                        <strong>Created Date:</strong>
+                        <span id="viewUserCreated">-</span>
+                        
+                        <strong>Last Login:</strong>
+                        <span id="viewUserLastLogin">-</span>
+                        
+                        <strong>Total Logins:</strong>
+                        <span id="viewUserTotalLogins">-</span>
+                    </div>
+                </div>
+                
+                <div class="btn-group">
+                    <button class="btn" onclick="editUserFromView()">✏️ Edit User</button>
+                    <button class="btn btn-secondary" onclick="closeModal('viewUserModal')">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Fee Structure Modal -->
+    <div id="editFeeModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Edit Fee Structure</h2>
+                <button class="close-btn" onclick="closeModal('editFeeModal')">&times;</button>
+            </div>
+            <div id="editFeeContent">
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>Skill Area Name *</label>
+                        <input type="text" id="editFeeSkillArea" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Total Tuition Fee ($) *</label>
+                        <input type="number" id="editFeeTotalFee" step="0.01" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Number of Terms *</label>
+                        <input type="number" id="editFeeTermCount" min="1" max="9" required>
+                    </div>
+                </div>
+                <div style="background: var(--bg-primary); padding: 1rem; border-radius: 0.5rem; margin: 1rem 0;">
+                    <p><strong>Note:</strong> Changing the fee structure will affect all new students enrolled in this skill area.</p>
+                    <p style="margin-top: 0.5rem;"><strong>Warning:</strong> If you change the skill area name and students are already enrolled, their records will be updated.</p>
+                </div>
+                <div class="btn-group">
+                    <button class="btn" onclick="saveFeeEdit()">💾 Save Changes</button>
+                    <button class="btn btn-secondary" onclick="closeModal('editFeeModal')">Cancel</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // User Management & Authentication
+        let users = [];
+        let currentUser = null;
+
+        // Initialize default admin account
+        function initializeDefaultAdmin() {
+            const savedUsers = localStorage.getItem('cestiUsers');
+            if (!savedUsers) {
+                users = [{
+                    id: 'ADMIN001',
+                    fullName: 'CESTIS Administrator',
+                    username: 'Cestisadmin',
+                    password: 'Hazardadmin123$',
+                    role: 'Admin',
+                    email: 'admin@cestis.edu',
+                    department: 'Administration',
+                    createdDate: new Date().toISOString(),
+                    lastLogin: null
+                }];
+                saveUsers();
+            } else {
+                users = JSON.parse(savedUsers);
+            }
+        }
+
+        // Save users to localStorage
+        function saveUsers() {
+            localStorage.setItem('cestiUsers', JSON.stringify(users));
+        }
+
+        // Handle login
+        function handleLogin(event) {
+            event.preventDefault();
+            
+            const username = document.getElementById('loginUsername').value.trim();
+            const password = document.getElementById('loginPassword').value;
+            
+            const user = users.find(u => u.username === username && u.password === password);
+            
+            if (user) {
+                // Update last login and increment login count
+                user.lastLogin = new Date().toISOString();
+                user.loginCount = (user.loginCount || 0) + 1;
+                saveUsers();
+                
+                // Set current user
+                currentUser = user;
+                sessionStorage.setItem('cestiCurrentUser', JSON.stringify(user));
+                
+                // Show dashboard
+                document.getElementById('loginPage').style.display = 'none';
+                document.getElementById('mainDashboard').style.display = 'block';
+                
+                // Update UI based on role
+                updateUIForUserRole();
+                
+                // Display current user
+                document.getElementById('currentUserDisplay').textContent = `👤 ${user.fullName} (${user.role})`;
+                
+            } else {
+                const errorDiv = document.getElementById('loginError');
+                errorDiv.textContent = '❌ Invalid username or password';
+                errorDiv.style.display = 'block';
+                
+                setTimeout(() => {
+                    errorDiv.style.display = 'none';
+                }, 3000);
+            }
+        }
+
+        // Handle logout
+        function handleLogout() {
+            if (confirm('Are you sure you want to logout?')) {
+                currentUser = null;
+                sessionStorage.removeItem('cestiCurrentUser');
+                
+                document.getElementById('loginPage').style.display = 'flex';
+                document.getElementById('mainDashboard').style.display = 'none';
+                
+                // Clear login form
+                document.getElementById('loginUsername').value = '';
+                document.getElementById('loginPassword').value = '';
+            }
+        }
+
+        // Update UI based on user role
+        function updateUIForUserRole() {
+            if (!currentUser) return;
+            
+            // Show User Management tab only for Admin
+            if (currentUser.role === 'Admin') {
+                document.getElementById('userManagementTab').style.display = 'block';
+                document.getElementById('feeStructureAdminControls').style.display = 'block';
+            } else {
+                document.getElementById('userManagementTab').style.display = 'none';
+                document.getElementById('feeStructureAdminControls').style.display = 'none';
+            }
+            
+            // Re-render fee structure to show/hide action buttons
+            renderFeeStructure();
+            
+            // Restrict certain features for User role
+            if (currentUser.role === 'User') {
+                // Users can view but have limited editing
+                // This can be expanded based on requirements
+            }
+        }
+
+        // Add new user
+        function addNewUser() {
+            if (currentUser.role !== 'Admin') {
+                alert('⚠️ Only administrators can add new users');
+                return;
+            }
+            
+            const fullName = document.getElementById('newUserFullName').value.trim();
+            const username = document.getElementById('newUsername').value.trim();
+            const password = document.getElementById('newPassword').value;
+            const role = document.getElementById('newUserRole').value;
+            const email = document.getElementById('newUserEmail').value.trim();
+            const department = document.getElementById('newUserDepartment').value.trim();
+            
+            if (!fullName || !username || !password || !role) {
+                alert('Please fill in all required fields');
+                return;
+            }
+            
+            // Check if username already exists
+            if (users.find(u => u.username === username)) {
+                alert('❌ Username already exists. Please choose a different username.');
+                return;
+            }
+            
+            // Validate password strength
+            if (password.length < 8) {
+                alert('❌ Password must be at least 8 characters long');
+                return;
+            }
+            
+            const newUser = {
+                id: 'USER' + Date.now(),
+                fullName: fullName,
+                username: username,
+                password: password,
+                role: role,
+                email: email,
+                department: department,
+                createdDate: new Date().toISOString(),
+                lastLogin: null
+            };
+            
+            users.push(newUser);
+            saveUsers();
+            renderUsersTable();
+            
+            // Clear form
+            document.getElementById('newUserFullName').value = '';
+            document.getElementById('newUsername').value = '';
+            document.getElementById('newPassword').value = '';
+            document.getElementById('newUserRole').value = 'User';
+            document.getElementById('newUserEmail').value = '';
+            document.getElementById('newUserDepartment').value = '';
+            
+            alert('✅ User added successfully!');
+        }
+
+        // Render users table
+        function renderUsersTable() {
+            const tbody = document.getElementById('usersTableBody');
+            tbody.innerHTML = '';
+            
+            users.forEach((user, index) => {
+                const row = tbody.insertRow();
+                const lastLogin = user.lastLogin ? new Date(user.lastLogin).toLocaleString() : 'Never';
+                const createdDate = new Date(user.createdDate).toLocaleDateString();
+                
+                row.innerHTML = `
+                    <td>${user.fullName}</td>
+                    <td>${user.username}</td>
+                    <td><span class="status-badge ${user.role === 'Admin' ? 'status-outstanding' : user.role === 'Manager' ? 'status-partial' : 'status-paid'}">${user.role}</span></td>
+                    <td>${user.email || '-'}</td>
+                    <td>${user.department || '-'}</td>
+                    <td>${createdDate}</td>
+                    <td>${lastLogin}</td>
+                    <td>
+                        <button class="action-btn" style="background: #66BB6A;" onclick="viewUser(${index})">View</button>
+                        <button class="action-btn" style="background: #FFA726;" onclick="editUser(${index})">Edit</button>
+                        <button class="action-btn btn-danger" onclick="deleteUser(${index})" ${user.role === 'Admin' && users.filter(u => u.role === 'Admin').length === 1 ? 'disabled' : ''}>Delete</button>
+                    </td>
+                `;
+            });
+        }
+
+        // Filter users
+        function filterUsers() {
+            const searchTerm = document.getElementById('searchUsers').value.toLowerCase();
+            const roleFilter = document.getElementById('filterUserRole').value;
+            
+            const rows = document.querySelectorAll('#usersTableBody tr');
+            
+            rows.forEach(row => {
+                const text = row.textContent.toLowerCase();
+                const role = row.cells[2].textContent.trim();
+                
+                const matchesSearch = text.includes(searchTerm);
+                const matchesRole = !roleFilter || role === roleFilter;
+                
+                row.style.display = (matchesSearch && matchesRole) ? '' : 'none';
+            });
+        }
+
+        // Edit user
+        function editUser(index) {
+            if (currentUser.role !== 'Admin') {
+                alert('⚠️ Only administrators can edit users');
+                return;
+            }
+            
+            editingUserIndex = index;
+            const user = users[index];
+            
+            // Populate edit form
+            document.getElementById('editUserFullName').value = user.fullName;
+            document.getElementById('editUserUsername').value = user.username;
+            document.getElementById('editUserPassword').value = '';
+            document.getElementById('editUserRole').value = user.role;
+            document.getElementById('editUserEmail').value = user.email || '';
+            document.getElementById('editUserDepartment').value = user.department || '';
+            document.getElementById('editUserIdDisplay').textContent = user.id;
+            document.getElementById('editUserCreatedDisplay').textContent = new Date(user.createdDate).toLocaleString();
+            document.getElementById('editUserLastLoginDisplay').textContent = user.lastLogin ? new Date(user.lastLogin).toLocaleString() : 'Never';
+            
+            // Open modal
+            document.getElementById('editUserModal').classList.add('active');
+        }
+
+        // Save user edits
+        function saveUserEdit() {
+            if (currentUser.role !== 'Admin') {
+                alert('⚠️ Only administrators can edit users');
+                return;
+            }
+            
+            if (editingUserIndex < 0 || editingUserIndex >= users.length) {
+                alert('Error: User not found');
+                return;
+            }
+            
+            const fullName = document.getElementById('editUserFullName').value.trim();
+            const username = document.getElementById('editUserUsername').value.trim();
+            const password = document.getElementById('editUserPassword').value;
+            const role = document.getElementById('editUserRole').value;
+            const email = document.getElementById('editUserEmail').value.trim();
+            const department = document.getElementById('editUserDepartment').value.trim();
+            
+            if (!fullName || !username || !role) {
+                alert('Please fill in all required fields');
+                return;
+            }
+            
+            const user = users[editingUserIndex];
+            const oldUsername = user.username;
+            
+            // Check if username is being changed and if it already exists
+            if (username !== oldUsername) {
+                if (users.find((u, i) => u.username === username && i !== editingUserIndex)) {
+                    alert('❌ Username already exists. Please choose a different username.');
+                    return;
+                }
+            }
+            
+            // Validate password if being changed
+            if (password && password.length < 8) {
+                alert('❌ Password must be at least 8 characters long');
+                return;
+            }
+            
+            // Prevent removing last admin
+            if (user.role === 'Admin' && role !== 'Admin') {
+                const adminCount = users.filter(u => u.role === 'Admin').length;
+                if (adminCount === 1) {
+                    alert('❌ Cannot change the role of the last administrator');
+                    return;
+                }
+            }
+            
+            // Update user data
+            user.fullName = fullName;
+            user.username = username;
+            if (password) {
+                user.password = password;
+            }
+            user.role = role;
+            user.email = email;
+            user.department = department;
+            
+            // Update current user in session if editing self
+            if (currentUser.id === user.id) {
+                currentUser = user;
+                sessionStorage.setItem('cestiCurrentUser', JSON.stringify(user));
+                document.getElementById('currentUserDisplay').textContent = `👤 ${user.fullName} (${user.role})`;
+                updateUIForUserRole();
+            }
+            
+            saveUsers();
+            renderUsersTable();
+            
+            closeModal('editUserModal');
+            editingUserIndex = -1;
+            
+            alert('✅ User information updated successfully!');
+        }
+
+        // View user details
+        let viewingUserIndex = -1;
+        let passwordVisible = false;
+
+        function viewUser(index) {
+            if (currentUser.role !== 'Admin') {
+                alert('⚠️ Only administrators can view user details');
+                return;
+            }
+            
+            viewingUserIndex = index;
+            const user = users[index];
+            
+            // Populate view modal
+            document.getElementById('viewUserId').textContent = user.id;
+            document.getElementById('viewUserFullName').textContent = user.fullName;
+            document.getElementById('viewUserUsername').textContent = user.username;
+            document.getElementById('viewUserPassword').textContent = '••••••••';
+            document.getElementById('viewUserPassword').dataset.password = user.password;
+            document.getElementById('viewUserRole').innerHTML = `<span class="status-badge ${user.role === 'Admin' ? 'status-outstanding' : user.role === 'Manager' ? 'status-partial' : 'status-paid'}">${user.role}</span>`;
+            document.getElementById('viewUserEmail').textContent = user.email || 'Not provided';
+            document.getElementById('viewUserDepartment').textContent = user.department || 'Not provided';
+            document.getElementById('viewUserCreated').textContent = new Date(user.createdDate).toLocaleString();
+            document.getElementById('viewUserLastLogin').textContent = user.lastLogin ? new Date(user.lastLogin).toLocaleString() : 'Never';
+            document.getElementById('viewUserTotalLogins').textContent = user.loginCount || 0;
+            
+            // Reset password visibility
+            passwordVisible = false;
+            document.getElementById('togglePasswordIcon').textContent = '👁️';
+            document.getElementById('togglePasswordText').textContent = 'Show Password';
+            
+            // Open modal
+            document.getElementById('viewUserModal').classList.add('active');
+        }
+
+        function togglePasswordVisibility() {
+            const passwordElement = document.getElementById('viewUserPassword');
+            const actualPassword = passwordElement.dataset.password;
+            
+            passwordVisible = !passwordVisible;
+            
+            if (passwordVisible) {
+                passwordElement.textContent = actualPassword;
+                document.getElementById('togglePasswordIcon').textContent = '🙈';
+                document.getElementById('togglePasswordText').textContent = 'Hide Password';
+            } else {
+                passwordElement.textContent = '••••••••';
+                document.getElementById('togglePasswordIcon').textContent = '👁️';
+                document.getElementById('togglePasswordText').textContent = 'Show Password';
+            }
+        }
+
+        function editUserFromView() {
+            closeModal('viewUserModal');
+            editUser(viewingUserIndex);
+        }
+
+        // Fee Structure Management
+        let editingFeeSkillArea = null;
+
+        // Load and save fee structure
+        function loadFeeStructure() {
+            const saved = localStorage.getItem('cestiFeeStructure');
+            if (saved) {
+                feeStructure = JSON.parse(saved);
+            }
+        }
+
+        function saveFeeStructure() {
+            localStorage.setItem('cestiFeeStructure', JSON.stringify(feeStructure));
+        }
+
+        // Add new skill area
+        function addNewSkillArea() {
+            if (currentUser.role !== 'Admin') {
+                alert('⚠️ Only administrators can add skill areas');
+                return;
+            }
+            
+            const name = document.getElementById('newSkillAreaName').value.trim().toUpperCase();
+            const fee = parseFloat(document.getElementById('newSkillAreaFee').value);
+            const termCount = parseInt(document.getElementById('newSkillAreaTerms').value);
+            
+            if (!name || !fee || !termCount) {
+                alert('Please fill in all required fields');
+                return;
+            }
+            
+            if (feeStructure[name]) {
+                alert('❌ This skill area already exists. Please use Edit to modify it.');
+                return;
+            }
+            
+            if (fee <= 0) {
+                alert('❌ Fee must be greater than 0');
+                return;
+            }
+            
+            if (termCount < 1 || termCount > 9) {
+                alert('❌ Number of terms must be between 1 and 9');
+                return;
+            }
+            
+            // Calculate term fees (distribute evenly)
+            const termFee = Math.round(fee / termCount);
+            const terms = [];
+            let remaining = fee;
+            
+            for (let i = 0; i < 9; i++) {
+                if (i < termCount - 1) {
+                    terms.push(termFee);
+                    remaining -= termFee;
+                } else if (i === termCount - 1) {
+                    terms.push(remaining); // Last term gets remainder
+                } else {
+                    terms.push(0);
+                }
+            }
+            
+            feeStructure[name] = { total: fee, terms: terms };
+            saveFeeStructure();
+            renderFeeStructure();
+            
+            // Clear form
+            document.getElementById('newSkillAreaName').value = '';
+            document.getElementById('newSkillAreaFee').value = '';
+            document.getElementById('newSkillAreaTerms').value = '';
+            
+            // Update skill area dropdown in student form
+            updateSkillAreaOptions();
+            
+            alert('✅ Skill area added successfully!');
+        }
+
+        // Edit fee structure
+        function editFee(skillArea) {
+            if (currentUser.role !== 'Admin') {
+                alert('⚠️ Only administrators can edit fee structures');
+                return;
+            }
+            
+            editingFeeSkillArea = skillArea;
+            const fee = feeStructure[skillArea];
+            
+            // Count non-zero terms
+            const termCount = fee.terms.filter(t => t > 0).length;
+            
+            document.getElementById('editFeeSkillArea').value = skillArea;
+            document.getElementById('editFeeTotalFee').value = fee.total;
+            document.getElementById('editFeeTermCount').value = termCount;
+            
+            document.getElementById('editFeeModal').classList.add('active');
+        }
+
+        // Save fee edit
+        function saveFeeEdit() {
+            if (currentUser.role !== 'Admin') {
+                alert('⚠️ Only administrators can edit fee structures');
+                return;
+            }
+            
+            if (!editingFeeSkillArea) {
+                alert('Error: No skill area selected');
+                return;
+            }
+            
+            const newName = document.getElementById('editFeeSkillArea').value.trim().toUpperCase();
+            const fee = parseFloat(document.getElementById('editFeeTotalFee').value);
+            const termCount = parseInt(document.getElementById('editFeeTermCount').value);
+            
+            if (!newName || !fee || !termCount) {
+                alert('Please fill in all required fields');
+                return;
+            }
+            
+            if (fee <= 0) {
+                alert('❌ Fee must be greater than 0');
+                return;
+            }
+            
+            if (termCount < 1 || termCount > 9) {
+                alert('❌ Number of terms must be between 1 and 9');
+                return;
+            }
+            
+            // Check if renaming to existing skill area
+            if (newName !== editingFeeSkillArea && feeStructure[newName]) {
+                alert('❌ A skill area with this name already exists');
+                return;
+            }
+            
+            // Calculate term fees
+            const termFee = Math.round(fee / termCount);
+            const terms = [];
+            let remaining = fee;
+            
+            for (let i = 0; i < 9; i++) {
+                if (i < termCount - 1) {
+                    terms.push(termFee);
+                    remaining -= termFee;
+                } else if (i === termCount - 1) {
+                    terms.push(remaining);
+                } else {
+                    terms.push(0);
+                }
+            }
+            
+            // If name changed, update student records
+            if (newName !== editingFeeSkillArea) {
+                students.forEach(student => {
+                    if (student.skillArea === editingFeeSkillArea) {
+                        student.skillArea = newName;
+                        student.tuitionFee = fee;
+                    }
+                });
+                
+                payments.forEach(payment => {
+                    if (payment.skillArea === editingFeeSkillArea) {
+                        payment.skillArea = newName;
+                    }
+                });
+                
+                // Delete old entry
+                delete feeStructure[editingFeeSkillArea];
+            }
+            
+            feeStructure[newName] = { total: fee, terms: terms };
+            saveFeeStructure();
+            saveData();
+            
+            renderFeeStructure();
+            renderStudentsTable();
+            renderPaymentsTable();
+            updateSkillAreaOptions();
+            
+            closeModal('editFeeModal');
+            editingFeeSkillArea = null;
+            
+            alert('✅ Fee structure updated successfully!');
+        }
+
+        // Delete fee structure
+        function deleteFee(skillArea) {
+            if (currentUser.role !== 'Admin') {
+                alert('⚠️ Only administrators can delete skill areas');
+                return;
+            }
+            
+            // Check if any students are enrolled
+            const enrolledCount = students.filter(s => s.skillArea === skillArea).length;
+            
+            if (enrolledCount > 0) {
+                alert(`❌ Cannot delete this skill area. ${enrolledCount} student(s) are currently enrolled.\n\nPlease reassign or remove these students first.`);
+                return;
+            }
+            
+            if (confirm(`Are you sure you want to delete the skill area "${skillArea}"?\n\nThis action cannot be undone.`)) {
+                delete feeStructure[skillArea];
+                saveFeeStructure();
+                renderFeeStructure();
+                updateSkillAreaOptions();
+                alert('✅ Skill area deleted successfully');
+            }
+        }
+
+        // Update skill area options in dropdowns
+        function updateSkillAreaOptions() {
+            const skillAreaSelect = document.getElementById('skillArea');
+            const editSkillAreaSelect = document.getElementById('editSkillArea');
+            
+            const skillAreas = Object.keys(feeStructure).sort();
+            
+            skillAreaSelect.innerHTML = '<option value="">Select Skill Area</option>';
+            editSkillAreaSelect.innerHTML = '<option value="">Select Skill Area</option>';
+            
+            skillAreas.forEach(area => {
+                const option1 = document.createElement('option');
+                option1.value = area;
+                option1.textContent = area;
+                skillAreaSelect.appendChild(option1);
+                
+                const option2 = document.createElement('option');
+                option2.value = area;
+                option2.textContent = area;
+                editSkillAreaSelect.appendChild(option2);
+            });
+        }
+
+        // Delete user
+        function deleteUser(index) {
+            if (currentUser.role !== 'Admin') {
+                alert('⚠️ Only administrators can delete users');
+                return;
+            }
+            
+            const user = users[index];
+            
+            // Prevent deleting the last admin
+            if (user.role === 'Admin' && users.filter(u => u.role === 'Admin').length === 1) {
+                alert('❌ Cannot delete the last administrator account');
+                return;
+            }
+            
+            // Prevent self-deletion
+            if (user.username === currentUser.username) {
+                alert('❌ You cannot delete your own account');
+                return;
+            }
+            
+            if (confirm(`Are you sure you want to delete user "${user.fullName}"?`)) {
+                users.splice(index, 1);
+                saveUsers();
+                renderUsersTable();
+                alert('✅ User deleted successfully');
+            }
+        }
+
+        // Fee structure data
+        let feeStructure = {
+            'WELDING L2': { total: 28000, terms: [5000, 5000, 5000, 5000, 5000, 3000, 0, 0, 0] },
+            'WELDING L3': { total: 35000, terms: [8000, 8000, 8000, 6000, 5000, 0, 0, 0, 0] },
+            'ELECTRICAL L2': { total: 28000, terms: [5000, 5000, 5000, 5000, 5000, 3000, 0, 0, 0] },
+            'ELECTRICAL L3': { total: 35000, terms: [8000, 8000, 8000, 6000, 5000, 0, 0, 0, 0] },
+            'HOSPITALITY SERVICES L2': { total: 48000, terms: [10000, 10000, 10000, 10000, 5000, 3000, 0, 0, 0] },
+            'COMMI CHEF L2': { total: 48000, terms: [10000, 10000, 10000, 10000, 5000, 3000, 0, 0, 0] },
+            'BUSINESS ADMIN L2': { total: 28000, terms: [5000, 5000, 5000, 5000, 5000, 3000, 0, 0, 0] },
+            'BEAUTY THERAPY L2': { total: 38000, terms: [8000, 8000, 8000, 8000, 6000, 0, 0, 0, 0] },
+            'COSMETOLOGY L2': { total: 38000, terms: [8000, 8000, 8000, 8000, 6000, 0, 0, 0, 0] }
+        };
+
+        // Data storage
+        let students = [];
+        let payments = [];
+        let documents = [];
+        let selectedFiles = [];
+        let importData = null;
+        let collectionChart = null;
+        let trendChart = null;
+        let editingStudentIndex = -1;
+        let editingPaymentId = null;
+        let editingUserIndex = -1;
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            // Initialize admin account first
+            initializeDefaultAdmin();
+            
+            // Load fee structure from storage
+            loadFeeStructure();
+            
+            // Check for existing session
+            const savedSession = sessionStorage.getItem('cestiCurrentUser');
+            if (savedSession) {
+                currentUser = JSON.parse(savedSession);
+                document.getElementById('loginPage').style.display = 'none';
+                document.getElementById('mainDashboard').style.display = 'block';
+                document.getElementById('currentUserDisplay').textContent = `👤 ${currentUser.fullName} (${currentUser.role})`;
+                updateUIForUserRole();
+            } else {
+                // Show login page
+                document.getElementById('loginPage').style.display = 'flex';
+                document.getElementById('mainDashboard').style.display = 'none';
+            }
+            
+            loadData();
+            renderFeeStructure();
+            updateDashboard();
+            renderStudentsTable();
+            renderPaymentsTable();
+            renderDocumentsTable();
+            renderUsersTable();
+            populatePaymentStudentSelect();
+            populateDocumentStudentSelect();
+            updateDocumentTypeFilter();
+            updateSkillAreaOptions();
+            initializeCharts();
+            setupDragAndDrop();
+            
+            // Set today's date as default
+            const today = new Date().toISOString().split('T')[0];
+            document.getElementById('enrollmentDate').value = today;
+            document.getElementById('paymentDate').value = today;
+
+            // Load dark mode preference
+            const isDarkMode = localStorage.getItem('darkMode') === 'true';
+            if (isDarkMode) {
+                document.body.classList.add('dark-mode');
+                updateThemeToggle();
+            }
+
+            // Hide upload form by default
+            if (document.getElementById('uploadDocumentForm')) {
+                document.getElementById('uploadDocumentForm').style.display = 'none';
+            }
+        });
+
+        // Dark Mode Toggle
+        function toggleDarkMode() {
+            document.body.classList.toggle('dark-mode');
+            const isDarkMode = document.body.classList.contains('dark-mode');
+            localStorage.setItem('darkMode', isDarkMode);
+            updateThemeToggle();
+            
+            // Refresh charts with new theme
+            if (collectionChart) {
+                updateChartTheme(collectionChart);
+            }
+            if (trendChart) {
+                updateChartTheme(trendChart);
+            }
+        }
+
+        function updateThemeToggle() {
+            const isDarkMode = document.body.classList.contains('dark-mode');
+            document.getElementById('themeIcon').textContent = isDarkMode ? '☀️' : '🌙';
+            document.getElementById('themeText').textContent = isDarkMode ? 'Light Mode' : 'Dark Mode';
+        }
+
+        function updateChartTheme(chart) {
+            const isDarkMode = document.body.classList.contains('dark-mode');
+            const textColor = isDarkMode ? '#e0e0e0' : '#2C3E50';
+            const gridColor = isDarkMode ? '#2d4059' : '#e0e0e0';
+            
+            chart.options.scales.x.ticks.color = textColor;
+            chart.options.scales.y.ticks.color = textColor;
+            chart.options.scales.x.grid.color = gridColor;
+            chart.options.scales.y.grid.color = gridColor;
+            chart.options.plugins.legend.labels.color = textColor;
+            chart.update();
+        }
+
+        // Load data from localStorage
+        function loadData() {
+            const savedStudents = localStorage.getItem('cestiSchoolFeeStudents');
+            const savedPayments = localStorage.getItem('cestiSchoolFeePayments');
+            const savedDocuments = localStorage.getItem('cestiSchoolFeeDocuments');
+            
+            if (savedStudents) students = JSON.parse(savedStudents);
+            if (savedPayments) payments = JSON.parse(savedPayments);
+            if (savedDocuments) documents = JSON.parse(savedDocuments);
+        }
+
+        // Save data to localStorage
+        function saveData() {
+            localStorage.setItem('cestiSchoolFeeStudents', JSON.stringify(students));
+            localStorage.setItem('cestiSchoolFeePayments', JSON.stringify(payments));
+            localStorage.setItem('cestiSchoolFeeDocuments', JSON.stringify(documents));
+        }
+
+        // Switch between modules
+        function switchModule(moduleId) {
+            // Check if trying to access user management
+            if (moduleId === 'userManagement' && (!currentUser || currentUser.role !== 'Admin')) {
+                alert('⚠️ Access Denied: Only administrators can access User Management');
+                return;
+            }
+            
+            document.querySelectorAll('.nav-tab').forEach(tab => tab.classList.remove('active'));
+            event.target.classList.add('active');
+            
+            document.querySelectorAll('.module').forEach(module => module.classList.remove('active'));
+            document.getElementById(moduleId).classList.add('active');
+            
+            if (moduleId === 'dashboard') {
+                updateDashboard();
+                initializeCharts();
+            } else if (moduleId === 'reports') {
+                updateReportsStats();
+            } else if (moduleId === 'userManagement') {
+                renderUsersTable();
+            }
+        }
+
+        // Update tuition fee based on skill area
+        function updateTuitionFee() {
+            const skillArea = document.getElementById('skillArea').value;
+            const tuitionFeeInput = document.getElementById('tuitionFee');
+            
+            if (skillArea && feeStructure[skillArea]) {
+                tuitionFeeInput.value = feeStructure[skillArea].total;
+            } else {
+                tuitionFeeInput.value = '';
+            }
+        }
+
+        // Add student
+        function addStudent() {
+            const name = document.getElementById('studentName').value.trim();
+            const studentId = document.getElementById('studentId').value.trim() || 'STU' + Date.now();
+            const skillArea = document.getElementById('skillArea').value;
+            const tuitionFee = parseFloat(document.getElementById('tuitionFee').value) || 0;
+            const contact = document.getElementById('contactNumber').value.trim();
+            const email = document.getElementById('email').value.trim();
+            const enrollmentDate = document.getElementById('enrollmentDate').value;
+            
+            if (!name || !skillArea) {
+                alert('Please fill in all required fields (Name and Skill Area)');
+                return;
+            }
+            
+            const student = {
+                id: studentId,
+                name: name,
+                skillArea: skillArea,
+                tuitionFee: tuitionFee,
+                contact: contact,
+                email: email,
+                enrollmentDate: enrollmentDate,
+                totalPaid: 0,
+                balance: tuitionFee,
+                status: 'Outstanding',
+                createdAt: new Date().toISOString()
+            };
+            
+            students.push(student);
+            saveData();
+            
+            // Clear form
+            document.getElementById('studentName').value = '';
+            document.getElementById('studentId').value = '';
+            document.getElementById('skillArea').value = '';
+            document.getElementById('tuitionFee').value = '';
+            document.getElementById('contactNumber').value = '';
+            document.getElementById('email').value = '';
+            
+            renderStudentsTable();
+            populatePaymentStudentSelect();
+            populateDocumentStudentSelect();
+            updateDashboard();
+            
+            alert('Student added successfully!');
+        }
+
+        // Render students table
+        function renderStudentsTable() {
+            const tbody = document.getElementById('studentsTableBody');
+            tbody.innerHTML = '';
+            
+            students.forEach((student, index) => {
+                const row = tbody.insertRow();
+                row.innerHTML = `
+                    <td>${student.id}</td>
+                    <td>${student.name}</td>
+                    <td>${student.skillArea}</td>
+                    <td>$${student.tuitionFee.toFixed(2)}</td>
+                    <td>$${student.totalPaid.toFixed(2)}</td>
+                    <td>$${student.balance.toFixed(2)}</td>
+                    <td><span class="status-badge status-${getStatusClass(student.status)}">${student.status}</span></td>
+                    <td>
+                        <button class="action-btn btn-success" onclick="viewStudent(${index})">View</button>
+                        <button class="action-btn" style="background: #FFA726;" onclick="editStudent(${index})">Edit</button>
+                        <button class="action-btn btn-danger" onclick="deleteStudent(${index})">Delete</button>
+                    </td>
+                `;
+            });
+        }
+
+        // Get status class
+        function getStatusClass(status) {
+            if (status === 'Fully Paid') return 'paid';
+            if (status === 'Partial Payment') return 'partial';
+            return 'outstanding';
+        }
+
+        // Filter students
+        function filterStudents() {
+            const searchTerm = document.getElementById('searchStudent').value.toLowerCase();
+            const skillFilter = document.getElementById('filterSkillArea').value;
+            const statusFilter = document.getElementById('filterPaymentStatus').value;
+            
+            const rows = document.querySelectorAll('#studentsTableBody tr');
+            
+            rows.forEach(row => {
+                const text = row.textContent.toLowerCase();
+                const skillArea = row.cells[2].textContent;
+                const status = row.querySelector('.status-badge').textContent;
+                
+                const matchesSearch = text.includes(searchTerm);
+                const matchesSkill = !skillFilter || skillArea === skillFilter;
+                const matchesStatus = !statusFilter || status === statusFilter;
+                
+                row.style.display = (matchesSearch && matchesSkill && matchesStatus) ? '' : 'none';
+            });
+        }
+
+        // View student details
+        function viewStudent(index) {
+            const student = students[index];
+            const studentPayments = payments.filter(p => p.studentId === student.id);
+            const studentDocs = documents.filter(d => d.studentId === student.id);
+            
+            let content = `
+                <div style="margin-bottom: 1.5rem;">
+                    <h3 style="color: var(--primary-blue); margin-bottom: 1rem;">${student.name}</h3>
+                    <p><strong>Student ID:</strong> ${student.id}</p>
+                    <p><strong>Skill Area:</strong> ${student.skillArea}</p>
+                    <p><strong>Tuition Fee:</strong> $${student.tuitionFee.toFixed(2)}</p>
+                    <p><strong>Total Paid:</strong> $${student.totalPaid.toFixed(2)}</p>
+                    <p><strong>Balance:</strong> $${student.balance.toFixed(2)}</p>
+                    <p><strong>Status:</strong> <span class="status-badge status-${getStatusClass(student.status)}">${student.status}</span></p>
+                    <p><strong>Contact:</strong> ${student.contact || 'N/A'}</p>
+                    <p><strong>Email:</strong> ${student.email || 'N/A'}</p>
+                    <p><strong>Enrollment Date:</strong> ${student.enrollmentDate || 'N/A'}</p>
+                </div>
+                
+                <h3 style="color: var(--primary-blue); margin-bottom: 1rem;">Payment History</h3>
+            `;
+            
+            if (studentPayments.length > 0) {
+                studentPayments.forEach(payment => {
+                    content += `
+                        <div class="payment-item">
+                            <div>
+                                <strong>${payment.date}</strong> - ${payment.term}<br>
+                                <small>${payment.method} ${payment.receiptNumber ? '(Receipt: ' + payment.receiptNumber + ')' : ''}</small>
+                            </div>
+                            <div style="text-align: right;">
+                                <strong>$${payment.amount.toFixed(2)}</strong>
+                            </div>
+                        </div>
+                    `;
+                });
+            } else {
+                content += '<p>No payments recorded yet.</p>';
+            }
+
+            content += '<h3 style="color: var(--primary-blue); margin: 1.5rem 0 1rem;">Documents</h3>';
+            if (studentDocs.length > 0) {
+                studentDocs.forEach(doc => {
+                    content += `
+                        <div class="payment-item">
+                            <div>
+                                <strong>${doc.type}</strong><br>
+                                <small>${doc.fileName} (${formatFileSize(doc.size)})</small>
+                            </div>
+                            <div style="text-align: right;">
+                                <small>${doc.uploadDate}</small>
+                            </div>
+                        </div>
+                    `;
+                });
+            } else {
+                content += '<p>No documents uploaded yet.</p>';
+            }
+            
+            document.getElementById('studentModalContent').innerHTML = content;
+            document.getElementById('studentModal').classList.add('active');
+        }
+
+        // Delete student
+        function deleteStudent(index) {
+            if (confirm('Are you sure you want to delete this student? All payment records and documents will also be deleted.')) {
+                const studentId = students[index].id;
+                students.splice(index, 1);
+                payments = payments.filter(p => p.studentId !== studentId);
+                documents = documents.filter(d => d.studentId !== studentId);
+                
+                saveData();
+                renderStudentsTable();
+                renderPaymentsTable();
+                populatePaymentStudentSelect();
+                populateDocumentStudentSelect();
+                updateDashboard();
+            }
+        }
+
+        // Edit student
+        function editStudent(index) {
+            editingStudentIndex = index;
+            const student = students[index];
+            
+            // Populate edit form
+            document.getElementById('editStudentId').value = student.id;
+            document.getElementById('editStudentName').value = student.name;
+            document.getElementById('editSkillArea').value = student.skillArea;
+            document.getElementById('editTuitionFee').value = student.tuitionFee;
+            document.getElementById('editContactNumber').value = student.contact || '';
+            document.getElementById('editEmail').value = student.email || '';
+            document.getElementById('editEnrollmentDate').value = student.enrollmentDate || '';
+            document.getElementById('editTotalPaid').textContent = student.totalPaid.toFixed(2);
+            document.getElementById('editBalance').textContent = student.balance.toFixed(2);
+            document.getElementById('editStatus').innerHTML = `<span class="status-badge status-${getStatusClass(student.status)}">${student.status}</span>`;
+            
+            // Open modal
+            document.getElementById('editStudentModal').classList.add('active');
+        }
+
+        // Update tuition fee in edit form when skill area changes
+        function updateEditTuitionFee() {
+            const skillArea = document.getElementById('editSkillArea').value;
+            const tuitionFeeInput = document.getElementById('editTuitionFee');
+            
+            if (skillArea && feeStructure[skillArea]) {
+                const newFee = feeStructure[skillArea].total;
+                tuitionFeeInput.value = newFee;
+                
+                // Recalculate balance with new fee
+                if (editingStudentIndex >= 0) {
+                    const student = students[editingStudentIndex];
+                    const newBalance = newFee - student.totalPaid;
+                    document.getElementById('editBalance').textContent = newBalance.toFixed(2);
+                }
+            } else {
+                tuitionFeeInput.value = '';
+            }
+        }
+
+        // Save student edits
+        function saveStudentEdit() {
+            if (editingStudentIndex < 0 || editingStudentIndex >= students.length) {
+                alert('Error: Student not found');
+                return;
+            }
+            
+            const name = document.getElementById('editStudentName').value.trim();
+            const skillArea = document.getElementById('editSkillArea').value;
+            const contact = document.getElementById('editContactNumber').value.trim();
+            const email = document.getElementById('editEmail').value.trim();
+            const enrollmentDate = document.getElementById('editEnrollmentDate').value;
+            
+            if (!name || !skillArea) {
+                alert('Please fill in all required fields (Name and Skill Area)');
+                return;
+            }
+            
+            const student = students[editingStudentIndex];
+            const oldSkillArea = student.skillArea;
+            const newTuitionFee = feeStructure[skillArea].total;
+            
+            // Warn if changing skill area with existing payments
+            if (oldSkillArea !== skillArea && student.totalPaid > 0) {
+                if (!confirm(`Warning: Changing the skill area will update the tuition fee from $${student.tuitionFee.toFixed(2)} to $${newTuitionFee.toFixed(2)}.\n\nStudent has already paid $${student.totalPaid.toFixed(2)}.\n\nDo you want to continue?`)) {
+                    return;
+                }
+            }
+            
+            // Update student data
+            student.name = name;
+            student.skillArea = skillArea;
+            student.tuitionFee = newTuitionFee;
+            student.contact = contact;
+            student.email = email;
+            student.enrollmentDate = enrollmentDate;
+            student.balance = newTuitionFee - student.totalPaid;
+            
+            // Update status based on new balance
+            if (student.balance <= 0) {
+                student.status = 'Fully Paid';
+            } else if (student.totalPaid > 0) {
+                student.status = 'Partial Payment';
+            } else {
+                student.status = 'Outstanding';
+            }
+            
+            // Update all payment records with new skill area
+            payments.forEach(payment => {
+                if (payment.studentId === student.id) {
+                    payment.skillArea = skillArea;
+                    payment.studentName = name;
+                }
+            });
+            
+            // Update all document records with new name
+            documents.forEach(doc => {
+                if (doc.studentId === student.id) {
+                    doc.studentName = name;
+                }
+            });
+            
+            saveData();
+            renderStudentsTable();
+            renderPaymentsTable();
+            renderDocumentsTable();
+            populatePaymentStudentSelect();
+            updateDashboard();
+            
+            closeModal('editStudentModal');
+            editingStudentIndex = -1;
+            
+            alert('✅ Student information updated successfully!');
+        }
+
+        // Populate payment student select
+        function populatePaymentStudentSelect() {
+            const select = document.getElementById('paymentStudentId');
+            select.innerHTML = '<option value="">Select Student</option>';
+            
+            students.forEach(student => {
+                const option = document.createElement('option');
+                option.value = student.id;
+                option.textContent = `${student.name} - ${student.skillArea} (Balance: $${student.balance.toFixed(2)})`;
+                select.appendChild(option);
+            });
+        }
+
+        // Populate document student select
+        function populateDocumentStudentSelect() {
+            const select = document.getElementById('docStudentId');
+            const filterSelect = document.getElementById('filterDocStudent');
+            
+            select.innerHTML = '<option value="">Select Student</option>';
+            filterSelect.innerHTML = '<option value="">All Students</option>';
+            
+            students.forEach(student => {
+                const option = document.createElement('option');
+                option.value = student.id;
+                option.textContent = `${student.name} - ${student.id}`;
+                select.appendChild(option);
+                
+                const filterOption = document.createElement('option');
+                filterOption.value = student.id;
+                filterOption.textContent = `${student.name} - ${student.id}`;
+                filterSelect.appendChild(filterOption);
+            });
+        }
+
+        // Handle document type change (show/hide custom input)
+        function handleDocTypeChange() {
+            const docType = document.getElementById('docType').value;
+            const customGroup = document.getElementById('customDocTypeGroup');
+            
+            if (docType === 'Custom') {
+                customGroup.style.display = 'block';
+                document.getElementById('customDocType').required = true;
+            } else {
+                customGroup.style.display = 'none';
+                document.getElementById('customDocType').required = false;
+                document.getElementById('customDocType').value = '';
+            }
+        }
+
+        // Show upload form
+        function showUploadForm() {
+            const form = document.getElementById('uploadDocumentForm');
+            if (form.style.display === 'none') {
+                form.style.display = 'block';
+            } else {
+                form.style.display = 'none';
+            }
+        }
+
+        // View all documents
+        function viewAllDocuments() {
+            document.getElementById('uploadDocumentForm').style.display = 'none';
+            document.getElementById('searchDocuments').value = '';
+            document.getElementById('filterDocStudent').value = '';
+            document.getElementById('filterDocType').value = '';
+            filterDocuments();
+        }
+
+        // Load student payment info
+        function loadStudentPaymentInfo() {
+            const studentId = document.getElementById('paymentStudentId').value;
+            const infoDiv = document.getElementById('studentPaymentInfo');
+            
+            if (studentId) {
+                const student = students.find(s => s.id === studentId);
+                if (student) {
+                    document.getElementById('currentBalance').textContent = `$${student.balance.toFixed(2)}`;
+                    infoDiv.style.display = 'block';
+                }
+            } else {
+                infoDiv.style.display = 'none';
+            }
+        }
+
+        // Record payment
+        function recordPayment() {
+            const studentId = document.getElementById('paymentStudentId').value;
+            const amount = parseFloat(document.getElementById('paymentAmount').value) || 0;
+            const date = document.getElementById('paymentDate').value;
+            const method = document.getElementById('paymentMethod').value;
+            const term = document.getElementById('paymentTerm').value;
+            const receiptNumber = document.getElementById('receiptNumber').value.trim();
+            const notes = document.getElementById('paymentNotes').value.trim();
+            
+            if (!studentId || !amount || !date) {
+                alert('Please fill in all required fields');
+                return;
+            }
+            
+            const student = students.find(s => s.id === studentId);
+            if (!student) {
+                alert('Student not found');
+                return;
+            }
+            
+            if (amount > student.balance) {
+                if (!confirm(`Payment amount ($${amount.toFixed(2)}) exceeds balance ($${student.balance.toFixed(2)}). Continue?`)) {
+                    return;
+                }
+            }
+            
+            const payment = {
+                id: 'PAY' + Date.now(),
+                studentId: studentId,
+                studentName: student.name,
+                skillArea: student.skillArea,
+                amount: amount,
+                date: date,
+                method: method,
+                term: term,
+                receiptNumber: receiptNumber,
+                notes: notes,
+                createdAt: new Date().toISOString()
+            };
+            
+            payments.push(payment);
+            
+            student.totalPaid += amount;
+            student.balance = student.tuitionFee - student.totalPaid;
+            
+            if (student.balance <= 0) {
+                student.status = 'Fully Paid';
+            } else if (student.totalPaid > 0) {
+                student.status = 'Partial Payment';
+            } else {
+                student.status = 'Outstanding';
+            }
+            
+            saveData();
+            
+            document.getElementById('paymentStudentId').value = '';
+            document.getElementById('paymentAmount').value = '';
+            document.getElementById('receiptNumber').value = '';
+            document.getElementById('paymentNotes').value = '';
+            document.getElementById('studentPaymentInfo').style.display = 'none';
+            
+            renderPaymentsTable();
+            renderStudentsTable();
+            updateDashboard();
+            
+            alert('Payment recorded successfully!');
+        }
+
+        // Render payments table
+        function renderPaymentsTable() {
+            const tbody = document.getElementById('paymentsTableBody');
+            tbody.innerHTML = '';
+            
+            const sortedPayments = [...payments].sort((a, b) => new Date(b.date) - new Date(a.date));
+            
+            sortedPayments.forEach((payment) => {
+                const row = tbody.insertRow();
+                row.innerHTML = `
+                    <td>${payment.date}</td>
+                    <td>${payment.receiptNumber || '-'}</td>
+                    <td>${payment.studentName}</td>
+                    <td>${payment.skillArea}</td>
+                    <td>${payment.term}</td>
+                    <td>$${payment.amount.toFixed(2)}</td>
+                    <td>${payment.method}</td>
+                    <td>
+                        <button class="action-btn" style="background: #FFA726;" onclick="editPayment('${payment.id}')">Edit</button>
+                        <button class="action-btn btn-danger" onclick="deletePayment('${payment.id}')">Delete</button>
+                    </td>
+                `;
+            });
+        }
+
+        // Filter payments
+        function filterPayments() {
+            const searchTerm = document.getElementById('searchPayment').value.toLowerCase();
+            const dateFrom = document.getElementById('filterDateFrom').value;
+            const dateTo = document.getElementById('filterDateTo').value;
+            
+            const rows = document.querySelectorAll('#paymentsTableBody tr');
+            
+            rows.forEach(row => {
+                const text = row.textContent.toLowerCase();
+                const date = row.cells[0].textContent;
+                
+                const matchesSearch = text.includes(searchTerm);
+                const matchesDateFrom = !dateFrom || date >= dateFrom;
+                const matchesDateTo = !dateTo || date <= dateTo;
+                
+                row.style.display = (matchesSearch && matchesDateFrom && matchesDateTo) ? '' : 'none';
+            });
+        }
+
+        // Delete payment
+        function deletePayment(paymentId) {
+            if (confirm('Are you sure you want to delete this payment?')) {
+                const paymentIndex = payments.findIndex(p => p.id === paymentId);
+                const payment = payments[paymentIndex];
+                
+                const student = students.find(s => s.id === payment.studentId);
+                if (student) {
+                    student.totalPaid -= payment.amount;
+                    student.balance = student.tuitionFee - student.totalPaid;
+                    
+                    if (student.balance <= 0) {
+                        student.status = 'Fully Paid';
+                    } else if (student.totalPaid > 0) {
+                        student.status = 'Partial Payment';
+                    } else {
+                        student.status = 'Outstanding';
+                    }
+                }
+                
+                payments.splice(paymentIndex, 1);
+                saveData();
+                
+                renderPaymentsTable();
+                renderStudentsTable();
+                updateDashboard();
+            }
+        }
+
+        // Edit payment
+        function editPayment(paymentId) {
+            const payment = payments.find(p => p.id === paymentId);
+            if (!payment) {
+                alert('Payment not found');
+                return;
+            }
+            
+            editingPaymentId = paymentId;
+            
+            // Find the student
+            const student = students.find(s => s.id === payment.studentId);
+            
+            // Populate edit form
+            document.getElementById('editPaymentStudentName').value = payment.studentName + ' (' + payment.skillArea + ')';
+            document.getElementById('editPaymentAmount').value = payment.amount;
+            document.getElementById('editPaymentDate').value = payment.date;
+            document.getElementById('editPaymentMethod').value = payment.method;
+            document.getElementById('editPaymentTerm').value = payment.term;
+            document.getElementById('editReceiptNumber').value = payment.receiptNumber || '';
+            document.getElementById('editPaymentNotes').value = payment.notes || '';
+            document.getElementById('editOriginalAmount').textContent = payment.amount.toFixed(2);
+            
+            if (student) {
+                document.getElementById('editPaymentBalance').textContent = student.balance.toFixed(2);
+            }
+            
+            // Open modal
+            document.getElementById('editPaymentModal').classList.add('active');
+        }
+
+        // Save payment edits
+        function savePaymentEdit() {
+            if (!editingPaymentId) {
+                alert('Error: Payment not found');
+                return;
+            }
+            
+            const payment = payments.find(p => p.id === editingPaymentId);
+            if (!payment) {
+                alert('Error: Payment not found');
+                return;
+            }
+            
+            const newAmount = parseFloat(document.getElementById('editPaymentAmount').value) || 0;
+            const date = document.getElementById('editPaymentDate').value;
+            const method = document.getElementById('editPaymentMethod').value;
+            const term = document.getElementById('editPaymentTerm').value;
+            const receiptNumber = document.getElementById('editReceiptNumber').value.trim();
+            const notes = document.getElementById('editPaymentNotes').value.trim();
+            
+            if (!newAmount || !date) {
+                alert('Please fill in all required fields');
+                return;
+            }
+            
+            // Find the student
+            const student = students.find(s => s.id === payment.studentId);
+            if (!student) {
+                alert('Error: Student not found');
+                return;
+            }
+            
+            // Calculate the difference
+            const oldAmount = payment.amount;
+            const difference = newAmount - oldAmount;
+            
+            // Warn if amount changed significantly
+            if (Math.abs(difference) > 0.01) {
+                if (!confirm(`The payment amount will change from $${oldAmount.toFixed(2)} to $${newAmount.toFixed(2)}.\n\nThis will ${difference > 0 ? 'increase' : 'decrease'} the student's total paid by $${Math.abs(difference).toFixed(2)}.\n\nDo you want to continue?`)) {
+                    return;
+                }
+            }
+            
+            // Update payment
+            payment.amount = newAmount;
+            payment.date = date;
+            payment.method = method;
+            payment.term = term;
+            payment.receiptNumber = receiptNumber;
+            payment.notes = notes;
+            
+            // Update student totals
+            student.totalPaid = student.totalPaid - oldAmount + newAmount;
+            student.balance = student.tuitionFee - student.totalPaid;
+            
+            // Update status
+            if (student.balance <= 0) {
+                student.status = 'Fully Paid';
+            } else if (student.totalPaid > 0) {
+                student.status = 'Partial Payment';
+            } else {
+                student.status = 'Outstanding';
+            }
+            
+            saveData();
+            renderPaymentsTable();
+            renderStudentsTable();
+            updateDashboard();
+            
+            closeModal('editPaymentModal');
+            editingPaymentId = null;
+            
+            alert('✅ Payment updated successfully!');
+        }
+
+        // Document Management Functions
+        function setupDragAndDrop() {
+            const dropArea = document.getElementById('fileUploadArea');
+            
+            ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+                dropArea.addEventListener(eventName, preventDefaults, false);
+            });
+            
+            function preventDefaults(e) {
+                e.preventDefault();
+                e.stopPropagation();
+            }
+            
+            ['dragenter', 'dragover'].forEach(eventName => {
+                dropArea.addEventListener(eventName, () => {
+                    dropArea.classList.add('dragover');
+                }, false);
+            });
+            
+            ['dragleave', 'drop'].forEach(eventName => {
+                dropArea.addEventListener(eventName, () => {
+                    dropArea.classList.remove('dragover');
+                }, false);
+            });
+            
+            dropArea.addEventListener('drop', handleDrop, false);
+        }
+
+        function handleDrop(e) {
+            const dt = e.dataTransfer;
+            const files = dt.files;
+            handleFiles(files);
+        }
+
+        function handleFileSelect(e) {
+            const files = e.target.files;
+            handleFiles(files);
+        }
+
+        function handleFiles(files) {
+            selectedFiles = Array.from(files);
+            displaySelectedFiles();
+        }
+
+        function displaySelectedFiles() {
+            const listDiv = document.getElementById('selectedFilesList');
+            const containerDiv = document.getElementById('uploadedFilesList');
+            
+            if (selectedFiles.length === 0) {
+                containerDiv.style.display = 'none';
+                return;
+            }
+            
+            containerDiv.style.display = 'block';
+            listDiv.innerHTML = '';
+            
+            selectedFiles.forEach((file, index) => {
+                const fileItem = document.createElement('div');
+                fileItem.className = 'file-item';
+                fileItem.innerHTML = `
+                    <div>
+                        <strong>${file.name}</strong><br>
+                        <small>${formatFileSize(file.size)}</small>
+                    </div>
+                    <button class="action-btn btn-danger" onclick="removeSelectedFile(${index})">Remove</button>
+                `;
+                listDiv.appendChild(fileItem);
+            });
+        }
+
+        function removeSelectedFile(index) {
+            selectedFiles.splice(index, 1);
+            displaySelectedFiles();
+        }
+
+        function formatFileSize(bytes) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
+        }
+
+        function uploadDocuments() {
+            const studentId = document.getElementById('docStudentId').value;
+            const docTypeSelect = document.getElementById('docType').value;
+            
+            // Determine the document type (custom or predefined)
+            let docType = docTypeSelect;
+            if (docTypeSelect === 'Custom') {
+                const customType = document.getElementById('customDocType').value.trim();
+                if (!customType) {
+                    alert('Please enter a custom document type');
+                    return;
+                }
+                docType = customType;
+            }
+            
+            if (!studentId) {
+                alert('Please select a student');
+                return;
+            }
+            
+            if (selectedFiles.length === 0) {
+                alert('Please select files to upload');
+                return;
+            }
+            
+            const student = students.find(s => s.id === studentId);
+            if (!student) {
+                alert('Student not found');
+                return;
+            }
+            
+            let uploadedCount = 0;
+            selectedFiles.forEach(file => {
+                const doc = {
+                    id: 'DOC' + Date.now() + Math.random(),
+                    studentId: studentId,
+                    studentName: student.name,
+                    type: docType,
+                    fileName: file.name,
+                    size: file.size,
+                    uploadDate: new Date().toISOString().split('T')[0],
+                    fileData: null // In real app, would store base64 or upload to server
+                };
+                documents.push(doc);
+                uploadedCount++;
+            });
+            
+            saveData();
+            renderDocumentsTable();
+            updateDocumentTypeFilter();
+            
+            document.getElementById('docStudentId').value = '';
+            document.getElementById('docType').value = 'ID Card';
+            document.getElementById('customDocType').value = '';
+            document.getElementById('customDocTypeGroup').style.display = 'none';
+            selectedFiles = [];
+            displaySelectedFiles();
+            document.getElementById('fileInput').value = '';
+            
+            alert(`✅ ${uploadedCount} document(s) uploaded successfully!`);
+        }
+
+        function renderDocumentsTable() {
+            const tbody = document.getElementById('documentsTableBody');
+            tbody.innerHTML = '';
+            
+            const sortedDocs = [...documents].sort((a, b) => new Date(b.uploadDate) - new Date(a.uploadDate));
+            
+            sortedDocs.forEach((doc) => {
+                const student = students.find(s => s.id === doc.studentId);
+                const studentId = student ? student.id : 'N/A';
+                
+                const row = tbody.insertRow();
+                row.innerHTML = `
+                    <td>${doc.uploadDate}</td>
+                    <td>${doc.studentName}</td>
+                    <td>${studentId}</td>
+                    <td>${doc.type}</td>
+                    <td>${doc.fileName}</td>
+                    <td>${formatFileSize(doc.size)}</td>
+                    <td>
+                        <button class="action-btn btn-success" onclick="downloadDocument('${doc.id}')">Download</button>
+                        <button class="action-btn btn-danger" onclick="deleteDocument('${doc.id}')">Delete</button>
+                    </td>
+                `;
+            });
+        }
+
+        function updateDocumentTypeFilter() {
+            const filterSelect = document.getElementById('filterDocType');
+            
+            // Get unique document types
+            const uniqueTypes = [...new Set(documents.map(d => d.type))].sort();
+            
+            // Rebuild the filter
+            filterSelect.innerHTML = '<option value="">All Document Types</option>';
+            uniqueTypes.forEach(type => {
+                const option = document.createElement('option');
+                option.value = type;
+                option.textContent = type;
+                filterSelect.appendChild(option);
+            });
+        }
+
+        function filterDocuments() {
+            const searchTerm = document.getElementById('searchDocuments').value.toLowerCase();
+            const studentFilter = document.getElementById('filterDocStudent').value;
+            const typeFilter = document.getElementById('filterDocType').value;
+            
+            const rows = document.querySelectorAll('#documentsTableBody tr');
+            
+            rows.forEach(row => {
+                const text = row.textContent.toLowerCase();
+                const studentId = row.cells[2].textContent;
+                const type = row.cells[3].textContent;
+                
+                const matchesSearch = text.includes(searchTerm);
+                const matchesStudent = !studentFilter || studentId === studentFilter;
+                const matchesType = !typeFilter || type === typeFilter;
+                
+                row.style.display = (matchesSearch && matchesStudent && matchesType) ? '' : 'none';
+            });
+        }
+
+        function downloadDocument(docId) {
+            alert('Download functionality would retrieve the file from storage/server');
+        }
+
+        function deleteDocument(docId) {
+            if (confirm('Are you sure you want to delete this document?')) {
+                const index = documents.findIndex(d => d.id === docId);
+                documents.splice(index, 1);
+                saveData();
+                renderDocumentsTable();
+                updateDocumentTypeFilter();
+            }
+        }
+
+        // Render fee structure
+        function renderFeeStructure() {
+            const tbody = document.getElementById('feeStructureBody');
+            tbody.innerHTML = '';
+            
+            const isAdmin = currentUser && currentUser.role === 'Admin';
+            const actionsHeader = document.getElementById('feeStructureActionsHeader');
+            
+            if (isAdmin) {
+                actionsHeader.style.display = '';
+            } else {
+                actionsHeader.style.display = 'none';
+            }
+            
+            for (const [skillArea, data] of Object.entries(feeStructure)) {
+                const row = tbody.insertRow();
+                
+                let html = `
+                    <td><strong>${skillArea}</strong></td>
+                    <td><strong>$${data.total.toFixed(2)}</strong></td>
+                    ${data.terms.map(term => `<td>${term > 0 ? '$' + term.toFixed(2) : '-'}</td>`).join('')}
+                `;
+                
+                if (isAdmin) {
+                    html += `
+                        <td>
+                            <button class="action-btn" style="background: #FFA726;" onclick="editFee('${skillArea}')">Edit</button>
+                            <button class="action-btn btn-danger" onclick="deleteFee('${skillArea}')">Delete</button>
+                        </td>
+                    `;
+                }
+                
+                row.innerHTML = html;
+            }
+        }
+
+        // Update dashboard
+        function updateDashboard() {
+            const totalStudents = students.length;
+            const totalExpected = students.reduce((sum, s) => sum + s.tuitionFee, 0);
+            const totalCollected = students.reduce((sum, s) => sum + s.totalPaid, 0);
+            const totalOutstanding = totalExpected - totalCollected;
+            
+            document.getElementById('totalStudents').textContent = totalStudents;
+            document.getElementById('totalExpected').textContent = '$' + totalExpected.toFixed(2);
+            document.getElementById('totalCollected').textContent = '$' + totalCollected.toFixed(2);
+            document.getElementById('totalOutstanding').textContent = '$' + totalOutstanding.toFixed(2);
+            
+            const recentPayments = [...payments].sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, 5);
+            const activityDiv = document.getElementById('recentActivity');
+            
+            if (recentPayments.length > 0) {
+                activityDiv.innerHTML = recentPayments.map(p => `
+                    <div class="payment-item">
+                        <div>
+                            <strong>${p.studentName}</strong> - ${p.skillArea}<br>
+                            <small>${p.date} - ${p.term}</small>
+                        </div>
+                        <div style="text-align: right;">
+                            <strong>$${p.amount.toFixed(2)}</strong>
+                        </div>
+                    </div>
+                `).join('');
+            } else {
+                activityDiv.innerHTML = '<p>No recent payments</p>';
+            }
+        }
+
+        // Initialize Charts
+        function initializeCharts() {
+            const isDarkMode = document.body.classList.contains('dark-mode');
+            const textColor = isDarkMode ? '#e0e0e0' : '#2C3E50';
+            const gridColor = isDarkMode ? '#2d4059' : '#e0e0e0';
+
+            // Collection Rate Chart
+            const collectionCtx = document.getElementById('collectionChart');
+            if (collectionCtx) {
+                if (collectionChart) {
+                    collectionChart.destroy();
+                }
+                
+                const skillAreas = Object.keys(feeStructure);
+                const collectionData = skillAreas.map(area => {
+                    const areaStudents = students.filter(s => s.skillArea === area);
+                    const expected = areaStudents.reduce((sum, s) => sum + s.tuitionFee, 0);
+                    const collected = areaStudents.reduce((sum, s) => sum + s.totalPaid, 0);
+                    return expected > 0 ? (collected / expected * 100).toFixed(1) : 0;
+                });
+                
+                collectionChart = new Chart(collectionCtx, {
+                    type: 'bar',
+                    data: {
+                        labels: skillAreas,
+                        datasets: [{
+                            label: 'Collection Rate (%)',
+                            data: collectionData,
+                            backgroundColor: '#A8D5A5',
+                            borderColor: '#66BB6A',
+                            borderWidth: 2
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: true,
+                        aspectRatio: 1,
+                        plugins: {
+                            legend: {
+                                labels: { 
+                                    color: textColor,
+                                    font: { size: 14 }
+                                }
+                            },
+                            title: {
+                                display: false
+                            }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                max: 100,
+                                ticks: { 
+                                    color: textColor,
+                                    font: { size: 12 }
+                                },
+                                grid: { color: gridColor }
+                            },
+                            x: {
+                                ticks: { 
+                                    color: textColor,
+                                    font: { size: 11 },
+                                    maxRotation: 45,
+                                    minRotation: 45
+                                },
+                                grid: { color: gridColor }
+                            }
+                        }
+                    }
+                });
+            }
+
+            // Trend Chart
+            const trendCtx = document.getElementById('trendChart');
+            if (trendCtx) {
+                if (trendChart) {
+                    trendChart.destroy();
+                }
+                
+                // Get last 6 months of payment data
+                const months = [];
+                const amounts = [];
+                const today = new Date();
+                
+                for (let i = 5; i >= 0; i--) {
+                    const date = new Date(today.getFullYear(), today.getMonth() - i, 1);
+                    const monthName = date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+                    const monthPayments = payments.filter(p => {
+                        const paymentDate = new Date(p.date);
+                        return paymentDate.getMonth() === date.getMonth() && 
+                               paymentDate.getFullYear() === date.getFullYear();
+                    });
+                    const totalAmount = monthPayments.reduce((sum, p) => sum + p.amount, 0);
+                    
+                    months.push(monthName);
+                    amounts.push(totalAmount);
+                }
+                
+                trendChart = new Chart(trendCtx, {
+                    type: 'line',
+                    data: {
+                        labels: months,
+                        datasets: [{
+                            label: 'Payments Received ($)',
+                            data: amounts,
+                            backgroundColor: 'rgba(168, 213, 165, 0.2)',
+                            borderColor: '#66BB6A',
+                            borderWidth: 3,
+                            fill: true,
+                            tension: 0.4,
+                            pointRadius: 5,
+                            pointHoverRadius: 7
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: true,
+                        aspectRatio: 1,
+                        plugins: {
+                            legend: {
+                                labels: { 
+                                    color: textColor,
+                                    font: { size: 14 }
+                                }
+                            },
+                            title: {
+                                display: false
+                            }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                ticks: { 
+                                    color: textColor,
+                                    font: { size: 12 },
+                                    callback: function(value) {
+                                        return '$' + value.toLocaleString();
+                                    }
+                                },
+                                grid: { color: gridColor }
+                            },
+                            x: {
+                                ticks: { 
+                                    color: textColor,
+                                    font: { size: 12 }
+                                },
+                                grid: { color: gridColor }
+                            }
+                        }
+                    }
+                });
+            }
+        }
+
+        // Update reports stats
+        function updateReportsStats() {
+            const totalStudents = students.length;
+            const totalExpected = students.reduce((sum, s) => sum + s.tuitionFee, 0);
+            const totalCollected = students.reduce((sum, s) => sum + s.totalPaid, 0);
+            const collectionRate = totalExpected > 0 ? (totalCollected / totalExpected * 100).toFixed(1) : 0;
+            const outstandingCount = students.filter(s => s.balance > 0).length;
+            const paidCount = students.filter(s => s.balance <= 0).length;
+            const avgPayment = totalStudents > 0 ? (totalCollected / totalStudents).toFixed(2) : 0;
+            
+            document.getElementById('collectionRate').textContent = collectionRate + '%';
+            document.getElementById('outstandingCount').textContent = outstandingCount;
+            document.getElementById('paidCount').textContent = paidCount;
+            document.getElementById('avgPayment').textContent = '$' + avgPayment;
+        }
+
+        // Generate report
+        function generateReport() {
+            const reportType = document.getElementById('reportType').value;
+            const output = document.getElementById('reportOutput');
+            const monthlyBreakdown = document.getElementById('monthlyBreakdown');
+            
+            monthlyBreakdown.style.display = 'none';
+            
+            let filteredStudents = [...students];
+            
+            if (reportType === 'outstanding') {
+                filteredStudents = students.filter(s => s.balance > 0);
+            } else if (reportType === 'fullypaid') {
+                filteredStudents = students.filter(s => s.balance <= 0);
+            } else if (reportType === 'monthly') {
+                generateMonthlyReport();
+                return;
+            }
+            
+            if (reportType === 'skillarea') {
+                const grouped = {};
+                students.forEach(s => {
+                    if (!grouped[s.skillArea]) {
+                        grouped[s.skillArea] = [];
+                    }
+                    grouped[s.skillArea].push(s);
+                });
+                
+                let html = '<h3 style="color: var(--primary-blue); margin-bottom: 1rem;">Students by Skill Area</h3>';
+                for (const [skillArea, studentList] of Object.entries(grouped)) {
+                    const total = studentList.reduce((sum, s) => sum + s.tuitionFee, 0);
+                    const collected = studentList.reduce((sum, s) => sum + s.totalPaid, 0);
+                    
+                    html += `
+                        <div style="background: var(--bg-primary); padding: 1rem; border-radius: 0.5rem; margin-bottom: 1rem;">
+                            <h4 style="color: var(--primary-blue);">${skillArea} (${studentList.length} students)</h4>
+                            <p><strong>Total Expected:</strong> $${total.toFixed(2)}</p>
+                            <p><strong>Total Collected:</strong> $${collected.toFixed(2)}</p>
+                            <p><strong>Collection Rate:</strong> ${(collected / total * 100).toFixed(1)}%</p>
+                        </div>
+                    `;
+                }
+                output.innerHTML = html;
+            } else {
+                let html = `
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Student ID</th>
+                                <th>Name</th>
+                                <th>Skill Area</th>
+                                <th>Tuition Fee</th>
+                                <th>Paid</th>
+                                <th>Balance</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                `;
+                
+                filteredStudents.forEach(student => {
+                    html += `
+                        <tr>
+                            <td>${student.id}</td>
+                            <td>${student.name}</td>
+                            <td>${student.skillArea}</td>
+                            <td>$${student.tuitionFee.toFixed(2)}</td>
+                            <td>$${student.totalPaid.toFixed(2)}</td>
+                            <td>$${student.balance.toFixed(2)}</td>
+                            <td><span class="status-badge status-${getStatusClass(student.status)}">${student.status}</span></td>
+                        </tr>
+                    `;
+                });
+                
+                html += '</tbody></table>';
+                output.innerHTML = html;
+            }
+        }
+
+        function generateMonthlyReport() {
+            const monthlyBreakdown = document.getElementById('monthlyBreakdown');
+            const monthsGrid = document.getElementById('monthsGrid');
+            const output = document.getElementById('reportOutput');
+            
+            output.innerHTML = '';
+            monthlyBreakdown.style.display = 'block';
+            
+            // Get last 12 months
+            const months = [];
+            const today = new Date();
+            
+            for (let i = 11; i >= 0; i--) {
+                const date = new Date(today.getFullYear(), today.getMonth() - i, 1);
+                const monthName = date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+                
+                const monthPayments = payments.filter(p => {
+                    const paymentDate = new Date(p.date);
+                    return paymentDate.getMonth() === date.getMonth() && 
+                           paymentDate.getFullYear() === date.getFullYear();
+                });
+                
+                const totalAmount = monthPayments.reduce((sum, p) => sum + p.amount, 0);
+                const totalCount = monthPayments.length;
+                
+                months.push({
+                    name: monthName,
+                    count: totalCount,
+                    amount: totalAmount,
+                    hasData: totalCount > 0
+                });
+            }
+            
+            let html = '';
+            months.forEach(month => {
+                html += `
+                    <div class="month-card ${month.hasData ? 'has-data' : ''}">
+                        <div class="month-header">${month.name}</div>
+                        <div class="month-stats">
+                            <div class="month-stat">
+                                <div class="month-stat-label">Payments</div>
+                                <div class="month-stat-value">${month.count}</div>
+                            </div>
+                            <div class="month-stat">
+                                <div class="month-stat-label">Total Amount</div>
+                                <div class="month-stat-value">$${month.amount.toFixed(2)}</div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            monthsGrid.innerHTML = html;
+        }
+
+        // Export to PDF
+        function exportToPDF() {
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+            
+            doc.setFontSize(18);
+            doc.text('CESTI School Fee Report', 14, 20);
+            doc.setFontSize(12);
+            doc.text(`Generated: ${new Date().toLocaleString()}`, 14, 30);
+            
+            const reportType = document.getElementById('reportType').value;
+            let filteredStudents = [...students];
+            
+            if (reportType === 'outstanding') {
+                filteredStudents = students.filter(s => s.balance > 0);
+                doc.text('Report Type: Outstanding Balances', 14, 38);
+            } else if (reportType === 'fullypaid') {
+                filteredStudents = students.filter(s => s.balance <= 0);
+                doc.text('Report Type: Fully Paid Students', 14, 38);
+            } else {
+                doc.text('Report Type: All Students', 14, 38);
+            }
+            
+            const tableData = filteredStudents.map(s => [
+                s.id,
+                s.name,
+                s.skillArea,
+                '$' + s.tuitionFee.toFixed(2),
+                '$' + s.totalPaid.toFixed(2),
+                '$' + s.balance.toFixed(2),
+                s.status
+            ]);
+            
+            doc.autoTable({
+                head: [['ID', 'Name', 'Skill Area', 'Tuition', 'Paid', 'Balance', 'Status']],
+                body: tableData,
+                startY: 45,
+                styles: { fontSize: 9 },
+                headStyles: { fillColor: [13, 71, 161] }
+            });
+            
+            doc.save(`CESTI_Report_${new Date().toISOString().split('T')[0]}.pdf`);
+        }
+
+        // Export to Excel
+        function exportToExcel() {
+            if (students.length === 0) {
+                alert('No data to export');
+                return;
+            }
+            
+            const wb = XLSX.utils.book_new();
+            const headers = ['Student ID', 'Name', 'Skill Area', 'Tuition Fee', 'Total Paid', 
+                           'Balance', 'Status', 'Contact', 'Email', 'Enrollment Date'];
+            const rows = students.map(s => [
+                s.id,
+                s.name,
+                s.skillArea,
+                s.tuitionFee,
+                s.totalPaid,
+                s.balance,
+                s.status,
+                s.contact || '',
+                s.email || '',
+                s.enrollmentDate || ''
+            ]);
+            
+            const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
+            XLSX.utils.book_append_sheet(wb, ws, 'Students');
+            XLSX.writeFile(wb, `CESTI_Students_${new Date().toISOString().split('T')[0]}.xlsx`);
+        }
+
+        // Import/Export Functions
+        function handleImportFile(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const data = new Uint8Array(e.target.result);
+                const workbook = XLSX.read(data, { type: 'array' });
+                const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+                const jsonData = XLSX.utils.sheet_to_json(firstSheet);
+                
+                importData = jsonData;
+                displayImportPreview(jsonData);
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        function displayImportPreview(data) {
+            const previewDiv = document.getElementById('importPreview');
+            const tableDiv = document.getElementById('importPreviewTable');
+            
+            if (data.length === 0) {
+                alert('No data found in file');
+                return;
+            }
+            
+            let html = '<table><thead><tr>';
+            const headers = Object.keys(data[0]);
+            headers.forEach(h => html += `<th>${h}</th>`);
+            html += '</tr></thead><tbody>';
+            
+            data.slice(0, 5).forEach(row => {
+                html += '<tr>';
+                headers.forEach(h => html += `<td>${row[h] || ''}</td>`);
+                html += '</tr>';
+            });
+            
+            html += '</tbody></table>';
+            html += `<p style="margin-top: 1rem; color: var(--text-secondary);">Showing ${Math.min(5, data.length)} of ${data.length} rows</p>`;
+            
+            tableDiv.innerHTML = html;
+            previewDiv.style.display = 'block';
+        }
+
+        function confirmImport() {
+            if (!importData || importData.length === 0) {
+                alert('No data to import');
+                return;
+            }
+            
+            let imported = 0;
+            let errors = 0;
+            
+            importData.forEach(row => {
+                try {
+                    const skillArea = row['Skill Area'] || row['SkillArea'] || row['skill_area'];
+                    if (!skillArea || !feeStructure[skillArea]) {
+                        errors++;
+                        return;
+                    }
+                    
+                    const student = {
+                        id: row['Student ID'] || row['StudentID'] || 'STU' + Date.now() + Math.random(),
+                        name: row['Name'] || row['Student Name'] || '',
+                        skillArea: skillArea,
+                        tuitionFee: feeStructure[skillArea].total,
+                        contact: row['Contact Number'] || row['Contact'] || '',
+                        email: row['Email'] || '',
+                        enrollmentDate: row['Enrollment Date'] || row['EnrollmentDate'] || '',
+                        totalPaid: 0,
+                        balance: feeStructure[skillArea].total,
+                        status: 'Outstanding',
+                        createdAt: new Date().toISOString()
+                    };
+                    
+                    students.push(student);
+                    imported++;
+                } catch (e) {
+                    errors++;
+                }
+            });
+            
+            saveData();
+            renderStudentsTable();
+            populatePaymentStudentSelect();
+            populateDocumentStudentSelect();
+            updateDashboard();
+            
+            cancelImport();
+            
+            alert(`Import complete!\nImported: ${imported}\nErrors: ${errors}`);
+        }
+
+        function cancelImport() {
+            importData = null;
+            document.getElementById('importPreview').style.display = 'none';
+            document.getElementById('importFileInput').value = '';
+        }
+
+        function exportAllData(type) {
+            const wb = XLSX.utils.book_new();
+            
+            if (type === 'students' || type === 'complete') {
+                const headers = ['Student ID', 'Name', 'Skill Area', 'Tuition Fee', 'Total Paid', 
+                               'Balance', 'Status', 'Contact', 'Email', 'Enrollment Date'];
+                const rows = students.map(s => [
+                    s.id, s.name, s.skillArea, s.tuitionFee, s.totalPaid,
+                    s.balance, s.status, s.contact || '', s.email || '', s.enrollmentDate || ''
+                ]);
+                const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
+                XLSX.utils.book_append_sheet(wb, ws, 'Students');
+            }
+            
+            if (type === 'payments' || type === 'complete') {
+                const headers = ['Payment ID', 'Date', 'Student ID', 'Student Name', 'Skill Area',
+                               'Amount', 'Method', 'Term', 'Receipt #', 'Notes'];
+                const rows = payments.map(p => [
+                    p.id, p.date, p.studentId, p.studentName, p.skillArea,
+                    p.amount, p.method, p.term, p.receiptNumber || '', p.notes || ''
+                ]);
+                const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
+                XLSX.utils.book_append_sheet(wb, ws, 'Payments');
+            }
+            
+            const filename = type === 'complete' ? 'CESTI_Complete_Report' : 
+                           type === 'students' ? 'CESTI_Students' : 'CESTI_Payments';
+            XLSX.writeFile(wb, `${filename}_${new Date().toISOString().split('T')[0]}.xlsx`);
+        }
+
+        function backupData() {
+            const backup = {
+                students: students,
+                payments: payments,
+                documents: documents,
+                backupDate: new Date().toISOString(),
+                version: '1.0'
+            };
+            
+            const dataStr = JSON.stringify(backup, null, 2);
+            const dataBlob = new Blob([dataStr], { type: 'application/json' });
+            const url = URL.createObjectURL(dataBlob);
+            
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `CESTI_Backup_${new Date().toISOString().split('T')[0]}.json`;
+            link.click();
+            
+            URL.revokeObjectURL(url);
+        }
+
+        function restoreData(e) {
+            if (!confirm('⚠️ This will overwrite all existing data. Are you sure you want to restore from backup?')) {
+                return;
+            }
+            
+            const file = e.target.files[0];
+            if (!file) return;
+            
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const backup = JSON.parse(e.target.result);
+                    
+                    if (backup.students && backup.payments) {
+                        students = backup.students;
+                        payments = backup.payments;
+                        documents = backup.documents || [];
+                        
+                        saveData();
+                        renderStudentsTable();
+                        renderPaymentsTable();
+                        renderDocumentsTable();
+                        populatePaymentStudentSelect();
+                        populateDocumentStudentSelect();
+                        updateDashboard();
+                        
+                        alert('✅ Data restored successfully!');
+                    } else {
+                        alert('❌ Invalid backup file format');
+                    }
+                } catch (error) {
+                    alert('❌ Error reading backup file');
+                    console.error(error);
+                }
+            };
+            reader.readAsText(file);
+            
+            e.target.value = '';
+        }
+
+        // Close modal
+        function closeModal(modalId) {
+            document.getElementById(modalId).classList.remove('active');
+        }
+
+        // Close modal when clicking outside
+        window.onclick = function(event) {
+            if (event.target.classList.contains('modal')) {
+                event.target.classList.remove('active');
+            }
+        }
+    </script>
+</body>
+</html>
