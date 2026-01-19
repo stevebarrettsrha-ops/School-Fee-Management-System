@@ -10,7 +10,15 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
-    
+
+    <!-- Google API for Drive Integration -->
+    <script src="https://apis.google.com/js/api.js"></script>
+    <script src="https://accounts.google.com/gsi/client"></script>
+
+    <!-- TOTP/2FA Libraries for Google Authenticator -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/otpauth/9.2.2/otpauth.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+
     <style>
         * {
             margin: 0;
@@ -761,6 +769,433 @@
             margin: 0 auto 1rem;
             display: block;
         }
+
+        /* ============================================
+           Two-Factor Authentication (2FA) Styles
+           ============================================ */
+        .twofa-modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.6);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 10000;
+            backdrop-filter: blur(4px);
+        }
+
+        .twofa-modal {
+            background: var(--bg-card);
+            border-radius: 1rem;
+            padding: 2rem;
+            max-width: 450px;
+            width: 90%;
+            max-height: 90vh;
+            overflow-y: auto;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+            animation: modalSlideIn 0.3s ease;
+        }
+
+        @keyframes modalSlideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .twofa-modal-header {
+            text-align: center;
+            margin-bottom: 1.5rem;
+        }
+
+        .twofa-modal-header h2 {
+            color: var(--text-primary);
+            margin-bottom: 0.5rem;
+        }
+
+        .twofa-modal-header p {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+        }
+
+        .twofa-qr-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin: 1.5rem 0;
+            padding: 1.5rem;
+            background: var(--bg-primary);
+            border-radius: 0.75rem;
+        }
+
+        .twofa-qr-container canvas,
+        .twofa-qr-container img {
+            border-radius: 0.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .twofa-secret-key {
+            font-family: monospace;
+            background: var(--bg-card);
+            padding: 0.75rem 1rem;
+            border-radius: 0.5rem;
+            font-size: 0.85rem;
+            letter-spacing: 2px;
+            color: var(--text-primary);
+            border: 1px dashed var(--border-color);
+            word-break: break-all;
+            text-align: center;
+        }
+
+        .twofa-secret-label {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            margin-bottom: 0.5rem;
+        }
+
+        .twofa-single-input {
+            width: 100%;
+            padding: 1rem;
+            text-align: center;
+            font-size: 1.75rem;
+            font-weight: 600;
+            letter-spacing: 8px;
+            border: 2px solid var(--border-color);
+            border-radius: 0.5rem;
+            background: var(--bg-card);
+            color: var(--text-primary);
+            transition: all 0.3s ease;
+        }
+
+        .twofa-single-input:focus {
+            outline: none;
+            border-color: var(--primary-blue);
+            box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.2);
+        }
+
+        .twofa-actions {
+            display: flex;
+            gap: 0.75rem;
+            justify-content: center;
+            margin-top: 1.5rem;
+        }
+
+        .twofa-actions button {
+            padding: 0.75rem 1.5rem;
+            border-radius: 0.5rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .twofa-btn-primary {
+            background: #10b981;
+            color: white;
+            border: none;
+        }
+
+        .twofa-btn-primary:hover {
+            background: #059669;
+        }
+
+        .twofa-btn-secondary {
+            background: transparent;
+            color: var(--text-secondary);
+            border: 1px solid var(--border-color);
+        }
+
+        .twofa-btn-secondary:hover {
+            background: var(--bg-primary);
+        }
+
+        .twofa-btn-danger {
+            background: #ef4444;
+            color: white;
+            border: none;
+        }
+
+        .twofa-btn-danger:hover {
+            background: #dc2626;
+        }
+
+        .twofa-backup-codes {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 0.5rem;
+            margin: 1rem 0;
+            padding: 1rem;
+            background: var(--bg-primary);
+            border-radius: 0.5rem;
+        }
+
+        .twofa-backup-code {
+            font-family: monospace;
+            padding: 0.5rem;
+            background: var(--bg-card);
+            border-radius: 0.25rem;
+            text-align: center;
+            font-size: 0.85rem;
+            color: var(--text-primary);
+        }
+
+        .twofa-backup-code.used {
+            text-decoration: line-through;
+            opacity: 0.5;
+        }
+
+        .twofa-warning {
+            background: #fef3c7;
+            border: 1px solid #f59e0b;
+            border-radius: 0.5rem;
+            padding: 1rem;
+            margin: 1rem 0;
+            font-size: 0.875rem;
+            color: #92400e;
+        }
+
+        body.dark-mode .twofa-warning {
+            background: rgba(245, 158, 11, 0.2);
+            border-color: #f59e0b;
+            color: #fcd34d;
+        }
+
+        .twofa-success {
+            background: #d1fae5;
+            border: 1px solid #10b981;
+            border-radius: 0.5rem;
+            padding: 1rem;
+            margin: 1rem 0;
+            font-size: 0.875rem;
+            color: #065f46;
+        }
+
+        body.dark-mode .twofa-success {
+            background: rgba(16, 185, 129, 0.2);
+            border-color: #10b981;
+            color: #6ee7b7;
+        }
+
+        .twofa-status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.25rem 0.75rem;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+
+        .twofa-status-badge.enabled {
+            background: #d1fae5;
+            color: #10b981;
+        }
+
+        .twofa-status-badge.disabled {
+            background: #f3f4f6;
+            color: #6b7280;
+        }
+
+        body.dark-mode .twofa-status-badge.enabled {
+            background: rgba(16, 185, 129, 0.2);
+        }
+
+        body.dark-mode .twofa-status-badge.disabled {
+            background: rgba(107, 114, 128, 0.2);
+        }
+
+        .twofa-login-step {
+            text-align: center;
+        }
+
+        .twofa-login-step .login-subtitle {
+            margin-bottom: 1rem;
+        }
+
+        .twofa-use-backup {
+            margin-top: 1rem;
+            font-size: 0.85rem;
+            color: #666;
+        }
+
+        .twofa-use-backup a {
+            color: var(--primary-blue);
+            cursor: pointer;
+            text-decoration: underline;
+        }
+
+        .twofa-use-backup a:hover {
+            color: var(--light-blue);
+        }
+
+        .twofa-setup-btn {
+            margin-top: 0.5rem;
+        }
+
+        /* ============================================
+           Google Drive Cloud Sync Styles
+           ============================================ */
+        .cloud-sync-container {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .cloud-status {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.8rem;
+            color: #ffffff;
+        }
+
+        .cloud-status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #6b7280;
+        }
+
+        .cloud-status-dot.connected {
+            background: #10b981;
+            box-shadow: 0 0 6px #10b981;
+        }
+
+        .cloud-status-dot.syncing {
+            background: #f59e0b;
+            animation: pulse 1s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .cloud-sync-btn {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: #10b981;
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 0.5rem;
+            cursor: pointer;
+            font-size: 0.85rem;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+
+        .cloud-sync-btn:hover {
+            background: #059669;
+            transform: translateY(-2px);
+        }
+
+        .cloud-sync-btn.connect-btn {
+            background: #3b82f6;
+        }
+
+        .cloud-sync-btn.connect-btn:hover {
+            background: #2563eb;
+        }
+
+        .cloud-dropdown {
+            position: relative;
+        }
+
+        .cloud-dropdown-content {
+            position: absolute;
+            top: calc(100% + 0.5rem);
+            right: 0;
+            background: var(--bg-card);
+            border-radius: 0.5rem;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+            min-width: 200px;
+            display: none;
+            z-index: 1000;
+            overflow: hidden;
+        }
+
+        .cloud-dropdown-content.show {
+            display: block;
+        }
+
+        .cloud-dropdown-item {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.75rem 1rem;
+            cursor: pointer;
+            color: var(--text-primary);
+            transition: background 0.2s;
+        }
+
+        .cloud-dropdown-item:hover {
+            background: var(--bg-primary);
+        }
+
+        .cloud-dropdown-item.danger {
+            color: #ef4444;
+        }
+
+        .cloud-dropdown-item.danger:hover {
+            background: #fee2e2;
+        }
+
+        body.dark-mode .cloud-dropdown-item.danger:hover {
+            background: rgba(239, 68, 68, 0.2);
+        }
+
+        .cloud-dropdown-divider {
+            height: 1px;
+            background: var(--border-color);
+            margin: 0.25rem 0;
+        }
+
+        .last-sync-info {
+            padding: 0.5rem 1rem;
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+        }
+
+        .spinning {
+            display: inline-block;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+
+        /* 2FA Settings Section */
+        .twofa-settings-section {
+            background: var(--bg-primary);
+            padding: 1.5rem;
+            border-radius: 0.75rem;
+            margin-bottom: 2rem;
+            border-left: 4px solid var(--primary-blue);
+        }
+
+        .twofa-settings-section h3 {
+            color: var(--text-primary);
+            margin-bottom: 0.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .twofa-settings-section p {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+            margin-bottom: 1rem;
+        }
     </style>
 </head>
 <body>
@@ -776,19 +1211,47 @@
 
             <div class="login-error" id="loginError"></div>
 
-            <form onsubmit="handleLogin(event)">
-                <div class="input-group">
-                    <label>Username</label>
-                    <input type="text" id="loginUsername" class="login-input" required autocomplete="username">
-                </div>
+            <!-- Step 1: Username & Password -->
+            <div id="loginStep1">
+                <form onsubmit="handleLogin(event)">
+                    <div class="input-group">
+                        <label>Username</label>
+                        <input type="text" id="loginUsername" class="login-input" required autocomplete="username">
+                    </div>
+
+                    <div class="input-group">
+                        <label>Password</label>
+                        <input type="password" id="loginPassword" class="login-input" required autocomplete="current-password">
+                    </div>
+
+                    <button type="submit" class="login-btn">Login</button>
+                </form>
+            </div>
+
+            <!-- Step 2: 2FA Verification -->
+            <div id="loginStep2FA" style="display: none;" class="twofa-login-step">
+                <p class="login-subtitle">Enter the 6-digit code from your authenticator app</p>
 
                 <div class="input-group">
-                    <label>Password</label>
-                    <input type="password" id="loginPassword" class="login-input" required autocomplete="current-password">
+                    <input type="text" id="login2FACode" class="twofa-single-input" maxlength="6" pattern="[0-9]*" inputmode="numeric" placeholder="000000" autocomplete="one-time-code">
                 </div>
 
-                <button type="submit" class="login-btn">Login</button>
-            </form>
+                <button type="button" class="login-btn" onclick="verify2FALogin()">Verify Code</button>
+
+                <div class="twofa-use-backup">
+                    <a onclick="showBackupCodeInput()">Use a backup code instead</a>
+                </div>
+
+                <div id="backupCodeSection" style="display: none; margin-top: 1rem;">
+                    <div class="input-group">
+                        <label>Backup Code</label>
+                        <input type="text" id="loginBackupCode" class="login-input" placeholder="Enter backup code" style="text-transform: uppercase; letter-spacing: 2px;">
+                    </div>
+                    <button type="button" class="login-btn" onclick="verifyBackupCodeLogin()" style="background: #f59e0b;">Use Backup Code</button>
+                </div>
+
+                <button type="button" class="login-btn" onclick="cancelTwoFALogin()" style="background: transparent; color: #666; border: 1px solid #e0e0e0; margin-top: 0.75rem;">Cancel</button>
+            </div>
 
             <div class="login-footer">
                 <p>Secure Access Only</p>
@@ -808,9 +1271,57 @@
                 </button>
                 <div style="display: flex; align-items: center; gap: 1rem;">
                     <span id="currentUserDisplay" style="font-size: 0.9rem; color: #ffffff; font-weight: 600;"></span>
+
+                    <!-- Cloud Sync Controls -->
+                    <div class="cloud-sync-container" id="cloudSyncContainer">
+                        <div class="cloud-status" id="cloudStatus">
+                            <span class="cloud-status-dot" id="cloudStatusDot"></span>
+                            <span id="cloudStatusText">Not connected</span>
+                        </div>
+
+                        <div id="cloudNotConnected">
+                            <button class="cloud-sync-btn connect-btn" onclick="connectToGoogleDrive()">
+                                <span>☁️</span>
+                                <span>Cloud</span>
+                            </button>
+                        </div>
+
+                        <div id="cloudConnected" style="display: none;">
+                            <div class="cloud-dropdown">
+                                <button class="cloud-sync-btn" onclick="toggleCloudMenu()">
+                                    <span id="cloudMenuIcon">☁️</span>
+                                    <span>Cloud</span>
+                                    <span style="font-size: 0.6rem;">▼</span>
+                                </button>
+                                <div class="cloud-dropdown-content" id="cloudDropdownMenu">
+                                    <div class="cloud-dropdown-item" onclick="saveToCloud()">
+                                        <span>💾</span>
+                                        <span>Save to Cloud</span>
+                                    </div>
+                                    <div class="cloud-dropdown-item" onclick="syncFromCloud()">
+                                        <span>🔄</span>
+                                        <span>Sync from Cloud</span>
+                                    </div>
+                                    <div class="cloud-dropdown-divider"></div>
+                                    <div class="last-sync-info" id="lastSyncInfo">
+                                        Last sync: Never
+                                    </div>
+                                    <div class="last-sync-info" id="lastSavedByInfo" style="color: #6b7280; font-size: 0.7rem;">
+                                        Last saved by: --
+                                    </div>
+                                    <div class="cloud-dropdown-divider"></div>
+                                    <div class="cloud-dropdown-item danger" onclick="disconnectFromGoogleDrive()">
+                                        <span>🔌</span>
+                                        <span>Disconnect</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
                     <button class="theme-toggle-btn" onclick="toggleDarkMode()">
                         <span id="themeIcon">🌙</span>
-                        <span id="themeText">Dark Mode</span>
+                        <span id="themeText">Dark</span>
                     </button>
                 </div>
             </div>
@@ -1286,7 +1797,16 @@
         <!-- User Management Module (Admin Only) -->
         <div id="userManagement" class="module">
             <h2 style="color: var(--primary-blue); margin-bottom: 1.5rem;">User Management (Admin Only)</h2>
-            
+
+            <!-- 2FA Settings Section for Current User -->
+            <div class="twofa-settings-section">
+                <h3>🔐 Your Two-Factor Authentication</h3>
+                <p>Protect your account with Google Authenticator or any TOTP-compatible app.</p>
+                <div id="current2FAStatus">
+                    <!-- 2FA status will be rendered here by JavaScript -->
+                </div>
+            </div>
+
             <div class="form-section">
                 <h2>Add New User</h2>
                 <div class="form-grid">
@@ -1637,6 +2157,83 @@
         </div>
     </div>
 
+    <!-- 2FA Setup Modal -->
+    <div id="twofaSetupModal" class="twofa-modal-overlay" style="display: none;">
+        <div class="twofa-modal">
+            <div class="twofa-modal-header">
+                <h2>Set Up Two-Factor Authentication</h2>
+                <p>Scan the QR code with Google Authenticator or any TOTP app</p>
+            </div>
+
+            <div class="twofa-qr-container">
+                <div id="twofaQRCode"></div>
+                <div class="twofa-secret-label">Or enter this code manually:</div>
+                <div class="twofa-secret-key" id="twofaSecretKey"></div>
+            </div>
+
+            <div class="twofa-warning">
+                <strong>Important:</strong> Save the secret key in a safe place. You'll need it if you lose access to your authenticator app.
+            </div>
+
+            <div class="input-group" style="margin-top: 1rem;">
+                <label>Enter the 6-digit code to verify setup:</label>
+                <input type="text" id="twofaSetupCode" class="twofa-single-input" maxlength="6" pattern="[0-9]*" inputmode="numeric" placeholder="000000">
+            </div>
+
+            <div class="twofa-actions">
+                <button type="button" class="twofa-btn-secondary" onclick="closeTwoFASetup()">Cancel</button>
+                <button type="button" class="twofa-btn-primary" onclick="confirmTwoFASetup()">Enable 2FA</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 2FA Backup Codes Modal -->
+    <div id="twofaBackupModal" class="twofa-modal-overlay" style="display: none;">
+        <div class="twofa-modal">
+            <div class="twofa-modal-header">
+                <h2>Backup Codes</h2>
+                <p>Save these codes in a secure location. Each code can only be used once.</p>
+            </div>
+
+            <div class="twofa-warning">
+                <strong>Warning:</strong> These codes will only be shown once. Make sure to save them now!
+            </div>
+
+            <div class="twofa-backup-codes" id="twofaBackupCodes">
+                <!-- Backup codes will be populated here -->
+            </div>
+
+            <div class="twofa-actions">
+                <button type="button" class="twofa-btn-secondary" onclick="copyBackupCodes()">Copy Codes</button>
+                <button type="button" class="twofa-btn-primary" onclick="closeBackupCodesModal()">I've Saved These Codes</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 2FA Disable Confirmation Modal -->
+    <div id="twofaDisableModal" class="twofa-modal-overlay" style="display: none;">
+        <div class="twofa-modal">
+            <div class="twofa-modal-header">
+                <h2>Disable Two-Factor Authentication</h2>
+                <p>Enter your current 2FA code to confirm</p>
+            </div>
+
+            <div class="twofa-warning">
+                <strong>Warning:</strong> Disabling 2FA will make your account less secure.
+            </div>
+
+            <div class="input-group" style="margin-top: 1rem;">
+                <label>Enter 6-digit code from your authenticator:</label>
+                <input type="text" id="twofaDisableCode" class="twofa-single-input" maxlength="6" pattern="[0-9]*" inputmode="numeric" placeholder="000000">
+            </div>
+
+            <div class="twofa-actions">
+                <button type="button" class="twofa-btn-secondary" onclick="closeTwoFADisable()">Cancel</button>
+                <button type="button" class="twofa-btn-danger" onclick="confirmTwoFADisable()">Disable 2FA</button>
+            </div>
+        </div>
+    </div>
+
     <script>
         // User Management & Authentication
         let users = [];
@@ -1671,37 +2268,29 @@
         // Handle login
         function handleLogin(event) {
             event.preventDefault();
-            
+
             const username = document.getElementById('loginUsername').value.trim();
             const password = document.getElementById('loginPassword').value;
-            
+
             const user = users.find(u => u.username === username && u.password === password);
-            
+
             if (user) {
-                // Update last login and increment login count
-                user.lastLogin = new Date().toISOString();
-                user.loginCount = (user.loginCount || 0) + 1;
-                saveUsers();
-                
-                // Set current user
-                currentUser = user;
-                sessionStorage.setItem('cestiCurrentUser', JSON.stringify(user));
-                
-                // Show dashboard
-                document.getElementById('loginPage').style.display = 'none';
-                document.getElementById('mainDashboard').style.display = 'block';
-                
-                // Update UI based on role
-                updateUIForUserRole();
-                
-                // Display current user
-                document.getElementById('currentUserDisplay').textContent = `👤 ${user.fullName} (${user.role})`;
-                
+                // Check if user has 2FA enabled
+                if (user.twoFactorEnabled && user.twoFactorSecret) {
+                    // Store user temporarily and show 2FA step
+                    pendingTwoFAUser = user;
+                    document.getElementById('loginStep1').style.display = 'none';
+                    document.getElementById('loginStep2FA').style.display = 'block';
+                    document.getElementById('login2FACode').focus();
+                } else {
+                    // No 2FA, complete login directly
+                    completeLogin(user);
+                }
             } else {
                 const errorDiv = document.getElementById('loginError');
                 errorDiv.textContent = '❌ Invalid username or password';
                 errorDiv.style.display = 'block';
-                
+
                 setTimeout(() => {
                     errorDiv.style.display = 'none';
                 }, 3000);
@@ -2309,12 +2898,15 @@
                 document.getElementById('mainDashboard').style.display = 'block';
                 document.getElementById('currentUserDisplay').textContent = `👤 ${currentUser.fullName} (${currentUser.role})`;
                 updateUIForUserRole();
+                // Render 2FA status and initialize cloud sync for restored session
+                render2FAStatus();
+                initializeCloudSync();
             } else {
                 // Show login page
                 document.getElementById('loginPage').style.display = 'flex';
                 document.getElementById('mainDashboard').style.display = 'none';
             }
-            
+
             loadData();
             renderFeeStructure();
             updateDashboard();
@@ -2328,7 +2920,7 @@
             updateSkillAreaOptions();
             initializeCharts();
             setupDragAndDrop();
-            
+
             // Set today's date as default
             const today = new Date().toISOString().split('T')[0];
             document.getElementById('enrollmentDate').value = today;
@@ -2344,6 +2936,47 @@
             // Hide upload form by default
             if (document.getElementById('uploadDocumentForm')) {
                 document.getElementById('uploadDocumentForm').style.display = 'none';
+            }
+
+            // Initialize Google Auth after a short delay to ensure GIS library is loaded
+            setTimeout(() => {
+                initGoogleAuth();
+            }, 500);
+
+            // 2FA input event listeners
+            const twoFAInputs = ['login2FACode', 'twofaSetupCode', 'twofaDisableCode'];
+            twoFAInputs.forEach(inputId => {
+                const input = document.getElementById(inputId);
+                if (input) {
+                    // Only allow numeric input
+                    input.addEventListener('input', function(e) {
+                        this.value = this.value.replace(/[^0-9]/g, '');
+                    });
+
+                    // Handle Enter key
+                    input.addEventListener('keypress', function(e) {
+                        if (e.key === 'Enter') {
+                            e.preventDefault();
+                            if (inputId === 'login2FACode') verify2FALogin();
+                            else if (inputId === 'twofaSetupCode') confirmTwoFASetup();
+                            else if (inputId === 'twofaDisableCode') confirmTwoFADisable();
+                        }
+                    });
+                }
+            });
+
+            // Backup code input - allow alphanumeric, convert to uppercase
+            const backupCodeInput = document.getElementById('loginBackupCode');
+            if (backupCodeInput) {
+                backupCodeInput.addEventListener('input', function(e) {
+                    this.value = this.value.toUpperCase().replace(/[^A-Z0-9]/g, '');
+                });
+                backupCodeInput.addEventListener('keypress', function(e) {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        verifyBackupCodeLogin();
+                    }
+                });
             }
         });
 
@@ -3932,6 +4565,1114 @@
             if (event.target.classList.contains('modal')) {
                 event.target.classList.remove('active');
             }
+        }
+
+        // ============================================
+        // Two-Factor Authentication (2FA) Functions
+        // ============================================
+
+        // Temporary storage for 2FA setup
+        let pendingTwoFASecret = null;
+        let pendingBackupCodes = null;
+        let pendingTwoFAUser = null;
+
+        // Generate a random base32 secret for TOTP
+        function generateTOTPSecret() {
+            const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
+            let secret = '';
+            for (let i = 0; i < 32; i++) {
+                secret += chars.charAt(Math.floor(Math.random() * chars.length));
+            }
+            return secret;
+        }
+
+        // Generate TOTP code from secret (for verification)
+        function generateTOTPCode(secret) {
+            try {
+                const totp = new OTPAuth.TOTP({
+                    issuer: 'CESTIS School Fee',
+                    label: currentUser ? currentUser.username : 'User',
+                    algorithm: 'SHA1',
+                    digits: 6,
+                    period: 30,
+                    secret: secret
+                });
+                return totp.generate();
+            } catch (e) {
+                console.error('Error generating TOTP:', e);
+                return null;
+            }
+        }
+
+        // Verify TOTP code
+        function verifyTOTPCode(secret, code) {
+            try {
+                const totp = new OTPAuth.TOTP({
+                    issuer: 'CESTIS School Fee',
+                    label: 'User',
+                    algorithm: 'SHA1',
+                    digits: 6,
+                    period: 30,
+                    secret: secret
+                });
+                // Allow 1 period tolerance (30 seconds before/after)
+                const delta = totp.validate({ token: code, window: 1 });
+                return delta !== null;
+            } catch (e) {
+                console.error('Error verifying TOTP:', e);
+                return false;
+            }
+        }
+
+        // Generate TOTP URI for QR code
+        function generateTOTPUri(secret, username) {
+            const issuer = 'CESTIS%20School%20Fee';
+            const label = encodeURIComponent(username);
+            return `otpauth://totp/${issuer}:${label}?secret=${secret}&issuer=${issuer}&algorithm=SHA1&digits=6&period=30`;
+        }
+
+        // Generate backup codes
+        function generateBackupCodes() {
+            const codes = [];
+            const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // Exclude similar characters
+            for (let i = 0; i < 8; i++) {
+                let code = '';
+                for (let j = 0; j < 8; j++) {
+                    code += chars.charAt(Math.floor(Math.random() * chars.length));
+                }
+                codes.push({ code: code, used: false });
+            }
+            return codes;
+        }
+
+        // Render current user's 2FA status
+        function render2FAStatus() {
+            const container = document.getElementById('current2FAStatus');
+            if (!container || !currentUser) return;
+
+            if (currentUser.twoFactorEnabled) {
+                const unusedCodes = currentUser.backupCodes ?
+                    currentUser.backupCodes.filter(bc => !bc.used).length : 0;
+
+                container.innerHTML = `
+                    <div class="twofa-success">
+                        <strong>Two-Factor Authentication is ENABLED</strong>
+                        <p style="margin-top: 0.5rem;">Your account is protected with Google Authenticator.</p>
+                        <p style="margin-top: 0.25rem; font-size: 0.85rem;">Backup codes remaining: ${unusedCodes}/8</p>
+                    </div>
+                    <div style="display: flex; gap: 0.75rem; margin-top: 1rem; flex-wrap: wrap;">
+                        <button class="btn btn-secondary twofa-setup-btn" onclick="showBackupCodes()">View Backup Codes</button>
+                        <button class="btn" style="background: #f59e0b;" onclick="regenerateBackupCodes()">Regenerate Backup Codes</button>
+                        <button class="btn btn-danger twofa-setup-btn" onclick="openTwoFADisable()">Disable 2FA</button>
+                    </div>
+                `;
+            } else {
+                container.innerHTML = `
+                    <div style="background: var(--bg-secondary); padding: 1rem; border-radius: 0.5rem; margin-bottom: 1rem;">
+                        <strong>Two-Factor Authentication is DISABLED</strong>
+                        <p style="margin-top: 0.5rem; color: var(--text-secondary);">Add an extra layer of security to your account using Google Authenticator or any TOTP-compatible app.</p>
+                    </div>
+                    <button class="btn" style="background: #10b981;" onclick="openTwoFASetup()">Enable 2FA</button>
+                `;
+            }
+        }
+
+        // Open 2FA setup modal
+        function openTwoFASetup() {
+            // Generate new secret
+            pendingTwoFASecret = generateTOTPSecret();
+
+            // Display secret key
+            document.getElementById('twofaSecretKey').textContent = pendingTwoFASecret.match(/.{1,4}/g).join(' ');
+
+            // Generate QR code
+            const qrContainer = document.getElementById('twofaQRCode');
+            qrContainer.innerHTML = '';
+            const uri = generateTOTPUri(pendingTwoFASecret, currentUser.username);
+
+            new QRCode(qrContainer, {
+                text: uri,
+                width: 200,
+                height: 200,
+                colorDark: '#1e3a5f',
+                colorLight: '#ffffff',
+                correctLevel: QRCode.CorrectLevel.M
+            });
+
+            // Clear verification input
+            document.getElementById('twofaSetupCode').value = '';
+
+            // Show modal
+            document.getElementById('twofaSetupModal').style.display = 'flex';
+        }
+
+        // Close 2FA setup modal
+        function closeTwoFASetup() {
+            document.getElementById('twofaSetupModal').style.display = 'none';
+            pendingTwoFASecret = null;
+        }
+
+        // Confirm 2FA setup
+        function confirmTwoFASetup() {
+            const code = document.getElementById('twofaSetupCode').value.trim();
+
+            if (!code || code.length !== 6) {
+                alert('Please enter the 6-digit code from your authenticator app');
+                return;
+            }
+
+            if (!pendingTwoFASecret) {
+                alert('Setup session expired. Please try again.');
+                closeTwoFASetup();
+                return;
+            }
+
+            // Verify the code
+            if (verifyTOTPCode(pendingTwoFASecret, code)) {
+                // Generate backup codes
+                pendingBackupCodes = generateBackupCodes();
+
+                // Update user
+                const userIndex = users.findIndex(u => u.id === currentUser.id);
+                if (userIndex !== -1) {
+                    users[userIndex].twoFactorEnabled = true;
+                    users[userIndex].twoFactorSecret = pendingTwoFASecret;
+                    users[userIndex].backupCodes = pendingBackupCodes;
+                    saveUsers();
+                    currentUser = users[userIndex];
+                    sessionStorage.setItem('cestiCurrentUser', JSON.stringify(currentUser));
+                }
+
+                closeTwoFASetup();
+
+                // Show backup codes
+                showBackupCodesModal();
+
+                render2FAStatus();
+                renderUsersTable();
+            } else {
+                alert('Invalid code. Please check your authenticator app and try again.');
+                document.getElementById('twofaSetupCode').value = '';
+                document.getElementById('twofaSetupCode').focus();
+            }
+        }
+
+        // Show backup codes modal (after setup or on demand)
+        function showBackupCodesModal() {
+            const container = document.getElementById('twofaBackupCodes');
+            const codes = pendingBackupCodes || currentUser.backupCodes || [];
+
+            container.innerHTML = codes.map(bc => `
+                <div class="twofa-backup-code ${bc.used ? 'used' : ''}">${bc.code}</div>
+            `).join('');
+
+            document.getElementById('twofaBackupModal').style.display = 'flex';
+        }
+
+        // Show existing backup codes
+        function showBackupCodes() {
+            pendingBackupCodes = null;
+            showBackupCodesModal();
+        }
+
+        // Close backup codes modal
+        function closeBackupCodesModal() {
+            document.getElementById('twofaBackupModal').style.display = 'none';
+            pendingBackupCodes = null;
+        }
+
+        // Copy backup codes to clipboard
+        function copyBackupCodes() {
+            const codes = pendingBackupCodes || currentUser.backupCodes || [];
+            const codesText = codes.map((bc, i) => `${i + 1}. ${bc.code}${bc.used ? ' (USED)' : ''}`).join('\n');
+            const fullText = `CESTIS School Fee - Backup Codes for ${currentUser.username}\n` +
+                           `Generated: ${new Date().toLocaleString()}\n\n` +
+                           `${codesText}\n\n` +
+                           `Keep these codes in a safe place. Each code can only be used once.`;
+
+            navigator.clipboard.writeText(fullText).then(() => {
+                alert('Backup codes copied to clipboard!');
+            }).catch(() => {
+                alert('Failed to copy. Please manually select and copy the codes.');
+            });
+        }
+
+        // Regenerate backup codes
+        function regenerateBackupCodes() {
+            if (!confirm('This will invalidate all existing backup codes. Continue?')) {
+                return;
+            }
+
+            pendingBackupCodes = generateBackupCodes();
+
+            const userIndex = users.findIndex(u => u.id === currentUser.id);
+            if (userIndex !== -1) {
+                users[userIndex].backupCodes = pendingBackupCodes;
+                saveUsers();
+                currentUser = users[userIndex];
+                sessionStorage.setItem('cestiCurrentUser', JSON.stringify(currentUser));
+            }
+
+            showBackupCodesModal();
+            render2FAStatus();
+        }
+
+        // Open disable 2FA modal
+        function openTwoFADisable() {
+            document.getElementById('twofaDisableCode').value = '';
+            document.getElementById('twofaDisableModal').style.display = 'flex';
+        }
+
+        // Close disable 2FA modal
+        function closeTwoFADisable() {
+            document.getElementById('twofaDisableModal').style.display = 'none';
+        }
+
+        // Confirm disable 2FA
+        function confirmTwoFADisable() {
+            const code = document.getElementById('twofaDisableCode').value.trim();
+
+            if (!code || code.length !== 6) {
+                alert('Please enter the 6-digit code from your authenticator app');
+                return;
+            }
+
+            if (!currentUser.twoFactorSecret) {
+                alert('2FA is not enabled for this account.');
+                closeTwoFADisable();
+                return;
+            }
+
+            // Verify the code
+            if (verifyTOTPCode(currentUser.twoFactorSecret, code)) {
+                const userIndex = users.findIndex(u => u.id === currentUser.id);
+                if (userIndex !== -1) {
+                    users[userIndex].twoFactorEnabled = false;
+                    users[userIndex].twoFactorSecret = null;
+                    users[userIndex].backupCodes = null;
+                    saveUsers();
+                    currentUser = users[userIndex];
+                    sessionStorage.setItem('cestiCurrentUser', JSON.stringify(currentUser));
+                }
+
+                closeTwoFADisable();
+                alert('Two-Factor Authentication has been disabled.');
+                render2FAStatus();
+                renderUsersTable();
+            } else {
+                alert('Invalid code. Please check your authenticator app and try again.');
+                document.getElementById('twofaDisableCode').value = '';
+                document.getElementById('twofaDisableCode').focus();
+            }
+        }
+
+        // Show login error
+        function showLoginError(message) {
+            const errorDiv = document.getElementById('loginError');
+            errorDiv.textContent = message;
+            errorDiv.style.display = 'block';
+            setTimeout(() => {
+                errorDiv.style.display = 'none';
+            }, 3000);
+        }
+
+        // Verify 2FA code during login
+        function verify2FALogin() {
+            const code = document.getElementById('login2FACode').value.trim();
+
+            if (!code || code.length !== 6) {
+                showLoginError('Please enter a 6-digit code');
+                return;
+            }
+
+            if (!pendingTwoFAUser) {
+                showLoginError('Session expired. Please try again.');
+                cancelTwoFALogin();
+                return;
+            }
+
+            // Verify TOTP code
+            if (verifyTOTPCode(pendingTwoFAUser.twoFactorSecret, code)) {
+                completeLogin(pendingTwoFAUser);
+            } else {
+                showLoginError('Invalid code. Please try again.');
+                document.getElementById('login2FACode').value = '';
+                document.getElementById('login2FACode').focus();
+            }
+        }
+
+        // Verify backup code during login
+        function verifyBackupCodeLogin() {
+            const backupCode = document.getElementById('loginBackupCode').value.trim().toUpperCase();
+
+            if (!backupCode) {
+                showLoginError('Please enter a backup code');
+                return;
+            }
+
+            if (!pendingTwoFAUser) {
+                showLoginError('Session expired. Please try again.');
+                cancelTwoFALogin();
+                return;
+            }
+
+            // Check if backup code is valid and not used
+            const codeIndex = pendingTwoFAUser.backupCodes ?
+                pendingTwoFAUser.backupCodes.findIndex(bc => bc.code === backupCode && !bc.used) : -1;
+
+            if (codeIndex !== -1) {
+                // Mark backup code as used
+                const userIndex = users.findIndex(u => u.id === pendingTwoFAUser.id);
+                if (userIndex !== -1) {
+                    users[userIndex].backupCodes[codeIndex].used = true;
+                    saveUsers();
+                    pendingTwoFAUser = users[userIndex];
+                }
+                completeLogin(pendingTwoFAUser);
+            } else {
+                showLoginError('Invalid or already used backup code');
+                document.getElementById('loginBackupCode').value = '';
+                document.getElementById('loginBackupCode').focus();
+            }
+        }
+
+        // Show backup code input
+        function showBackupCodeInput() {
+            document.getElementById('backupCodeSection').style.display = 'block';
+        }
+
+        // Cancel 2FA login and go back
+        function cancelTwoFALogin() {
+            pendingTwoFAUser = null;
+            document.getElementById('loginStep1').style.display = 'block';
+            document.getElementById('loginStep2FA').style.display = 'none';
+            document.getElementById('backupCodeSection').style.display = 'none';
+            document.getElementById('login2FACode').value = '';
+            document.getElementById('loginBackupCode').value = '';
+            document.getElementById('loginPassword').value = '';
+        }
+
+        // Complete login after successful authentication
+        function completeLogin(user) {
+            // Update last login and increment login count
+            user.lastLogin = new Date().toISOString();
+            user.loginCount = (user.loginCount || 0) + 1;
+            saveUsers();
+
+            // Set current user
+            currentUser = user;
+            sessionStorage.setItem('cestiCurrentUser', JSON.stringify(user));
+
+            // Reset pending user
+            pendingTwoFAUser = null;
+
+            // Reset login form
+            document.getElementById('loginStep1').style.display = 'block';
+            document.getElementById('loginStep2FA').style.display = 'none';
+            document.getElementById('backupCodeSection').style.display = 'none';
+            document.getElementById('login2FACode').value = '';
+            document.getElementById('loginBackupCode').value = '';
+
+            // Show dashboard
+            document.getElementById('loginPage').style.display = 'none';
+            document.getElementById('mainDashboard').style.display = 'block';
+
+            // Update UI based on role
+            updateUIForUserRole();
+
+            // Display current user
+            document.getElementById('currentUserDisplay').textContent = `👤 ${user.fullName} (${user.role})`;
+
+            // Render 2FA status
+            render2FAStatus();
+
+            // Initialize cloud sync
+            initializeCloudSync();
+        }
+
+        // ============================================
+        // Google Drive Cloud Sync Integration
+        // ============================================
+
+        // Google Drive Configuration
+        const GOOGLE_DRIVE_CONFIG = {
+            // Google OAuth Client ID
+            CLIENT_ID: '302497466088-0b619cqa9qno2c606k4rqp742lebc5o8.apps.googleusercontent.com',
+            // Your Google Drive folder ID from the shared link
+            FOLDER_ID: '11vWe_Nc40TtJ1Hi7PoE7EZ3JrpR-K0Vj',
+            // File name for backup
+            BACKUP_FILE_NAME: 'cestis_school_fee_backup.json',
+            // API scopes needed
+            SCOPES: 'https://www.googleapis.com/auth/drive.file'
+        };
+
+        // Cloud sync state
+        let googleAccessToken = null;
+        let isCloudConnected = false;
+        let lastSyncTime = null;
+        let cloudFileId = null;
+        let lastSavedBy = null;
+        let cloudFileTimestamp = null;
+
+        // Google Token Client for OAuth
+        let googleTokenClient = null;
+
+        // Initialize cloud sync from localStorage
+        function initializeCloudSync() {
+            const savedToken = localStorage.getItem('cestisGoogleAccessToken');
+            const savedExpiry = localStorage.getItem('cestisGoogleTokenExpiry');
+            const savedLastSync = localStorage.getItem('cestisLastSyncTime');
+            const savedFileId = localStorage.getItem('cestisCloudFileId');
+
+            if (savedLastSync) {
+                lastSyncTime = new Date(savedLastSync);
+                updateLastSyncDisplay();
+            }
+
+            if (savedFileId) {
+                cloudFileId = savedFileId;
+            }
+
+            // Check if token is still valid
+            if (savedToken && savedExpiry) {
+                const expiry = new Date(savedExpiry);
+                if (expiry > new Date()) {
+                    googleAccessToken = savedToken;
+                    isCloudConnected = true;
+                    updateCloudUI(true);
+                    return;
+                }
+            }
+
+            updateCloudUI(false);
+        }
+
+        // Update cloud UI based on connection status
+        function updateCloudUI(connected) {
+            const notConnectedDiv = document.getElementById('cloudNotConnected');
+            const connectedDiv = document.getElementById('cloudConnected');
+            const statusDot = document.getElementById('cloudStatusDot');
+            const statusText = document.getElementById('cloudStatusText');
+
+            if (connected) {
+                notConnectedDiv.style.display = 'none';
+                connectedDiv.style.display = 'block';
+                statusDot.className = 'cloud-status-dot connected';
+                statusText.textContent = 'Connected';
+            } else {
+                notConnectedDiv.style.display = 'block';
+                connectedDiv.style.display = 'none';
+                statusDot.className = 'cloud-status-dot';
+                statusText.textContent = 'Not connected';
+            }
+        }
+
+        // Update syncing status
+        function setCloudSyncing(syncing) {
+            const statusDot = document.getElementById('cloudStatusDot');
+            const statusText = document.getElementById('cloudStatusText');
+            const menuIcon = document.getElementById('cloudMenuIcon');
+
+            if (syncing) {
+                statusDot.className = 'cloud-status-dot syncing';
+                statusText.textContent = 'Syncing...';
+                menuIcon.innerHTML = '<span class="spinning">🔄</span>';
+            } else {
+                statusDot.className = 'cloud-status-dot connected';
+                statusText.textContent = 'Connected';
+                menuIcon.textContent = '☁️';
+            }
+        }
+
+        // Toggle cloud dropdown menu
+        function toggleCloudMenu() {
+            const menu = document.getElementById('cloudDropdownMenu');
+            menu.classList.toggle('show');
+
+            // Close when clicking outside
+            setTimeout(() => {
+                document.addEventListener('click', closeCloudMenuOnClickOutside);
+            }, 0);
+        }
+
+        function closeCloudMenuOnClickOutside(e) {
+            const menu = document.getElementById('cloudDropdownMenu');
+            const dropdown = document.querySelector('.cloud-dropdown');
+
+            if (!dropdown.contains(e.target)) {
+                menu.classList.remove('show');
+                document.removeEventListener('click', closeCloudMenuOnClickOutside);
+            }
+        }
+
+        // Initialize Google Identity Services
+        function initGoogleAuth() {
+            if (typeof google !== 'undefined' && google.accounts && google.accounts.oauth2) {
+                googleTokenClient = google.accounts.oauth2.initTokenClient({
+                    client_id: GOOGLE_DRIVE_CONFIG.CLIENT_ID,
+                    scope: GOOGLE_DRIVE_CONFIG.SCOPES,
+                    callback: handleGoogleAuthCallback,
+                    error_callback: handleGoogleAuthError
+                });
+            }
+        }
+
+        // Connect to Google Drive using OAuth
+        async function connectToGoogleDrive() {
+            // Always show the modal first - let user choose method
+            showGoogleAuthModal();
+        }
+
+        // Show authentication modal with two options
+        function showGoogleAuthModal() {
+            const modalHTML = `
+                <div id="googleAuthModal" class="modal active" style="display: flex;">
+                    <div class="modal-content" style="max-width: 560px;">
+                        <div class="modal-header">
+                            <h2>Connect to Google Drive</h2>
+                            <button class="close-btn" onclick="closeGoogleAuthModal()">&times;</button>
+                        </div>
+                        <div style="padding: 1.5rem;">
+                            <p style="margin-bottom: 1.25rem; color: var(--text-secondary);">
+                                Connect to Google Drive to save and sync your school fee data across devices. Choose your preferred connection method:
+                            </p>
+
+                            <!-- Option 1: Direct Google Sign-In (Recommended) -->
+                            <div style="background: #d1fae5; border: 2px solid #10b981; border-radius: 0.75rem; padding: 1.25rem; margin-bottom: 1rem;">
+                                <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.75rem;">
+                                    <span style="font-size: 1.5rem;">🔐</span>
+                                    <div>
+                                        <strong style="color: #10b981; font-size: 1.1rem;">Direct Google Sign-In</strong>
+                                        <span style="background: #10b981; color: white; padding: 2px 8px; border-radius: 0.25rem; font-size: 0.7rem; margin-left: 0.5rem; font-weight: 600;">RECOMMENDED</span>
+                                    </div>
+                                </div>
+                                <p style="color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 1rem;">
+                                    A Google popup will appear for you to sign in with your Google account directly.
+                                </p>
+                                <button class="btn" style="width: 100%; padding: 0.75rem; background: #10b981;" onclick="triggerDirectGoogleSignIn()">
+                                    Sign in with Google
+                                </button>
+                            </div>
+
+                            <!-- Option 2: Manual Token Method -->
+                            <div id="manualTokenSection" style="background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 0.75rem; padding: 1.25rem;">
+                                <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.75rem;">
+                                    <span style="font-size: 1.5rem;">🔧</span>
+                                    <strong style="color: var(--text-primary); font-size: 1.1rem;">Manual Token Method</strong>
+                                </div>
+                                <p style="color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 1rem;">
+                                    If the popup doesn't work, you can still use the OAuth Playground to get a token manually.
+                                </p>
+                                <button class="btn btn-secondary" onclick="showManualTokenForm()" id="showManualTokenBtn" style="width: 100%;">
+                                    Use Manual Method
+                                </button>
+
+                                <!-- Manual token form (hidden by default) -->
+                                <div id="manualTokenForm" style="display: none; margin-top: 1rem;">
+                                    <div style="background: #e0f2fe; border: 1px solid #0ea5e9; border-radius: 0.5rem; padding: 1rem; margin-bottom: 1rem;">
+                                        <strong style="color: #0369a1;">How to get your access token:</strong>
+                                        <ol style="margin-top: 0.5rem; margin-left: 1rem; color: var(--text-secondary); font-size: 0.85rem; line-height: 1.6;">
+                                            <li>Click the link below to open Google OAuth Playground</li>
+                                            <li>In Step 1, find and select <strong>"Drive API v3"</strong> then check <strong>"drive.file"</strong></li>
+                                            <li>Click <strong>"Authorize APIs"</strong> (blue button)</li>
+                                            <li>Sign in with your Google account</li>
+                                            <li>In Step 2, click <strong>"Exchange authorization code for tokens"</strong></li>
+                                            <li>Copy the <strong>"Access token"</strong> value and paste below</li>
+                                        </ol>
+                                        <a href="https://developers.google.com/oauthplayground" target="_blank"
+                                           style="display: inline-block; margin-top: 0.75rem; padding: 0.5rem 1rem; background: var(--primary-blue); color: white; border-radius: 0.5rem; text-decoration: none; font-weight: 600; font-size: 0.875rem;">
+                                            Open OAuth Playground
+                                        </a>
+                                    </div>
+
+                                    <div class="form-group" style="margin-bottom: 1rem;">
+                                        <label style="font-weight: 600;">Access Token</label>
+                                        <textarea id="googleAccessTokenInput" rows="4" style="width: 100%; padding: 0.75rem; border: 2px solid var(--border-color); border-radius: 0.5rem; font-family: monospace; font-size: 0.75rem; resize: vertical; margin-top: 0.5rem;" placeholder="Paste your access token here..."></textarea>
+                                    </div>
+
+                                    <button class="btn" style="width: 100%; background: #10b981;" onclick="submitGoogleToken()">
+                                        Connect with Token
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div style="margin-top: 1rem; text-align: center;">
+                                <button class="btn btn-secondary" onclick="closeGoogleAuthModal()">Cancel</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            document.body.insertAdjacentHTML('beforeend', modalHTML);
+        }
+
+        // Trigger the direct Google Sign-In popup
+        function triggerDirectGoogleSignIn() {
+            closeGoogleAuthModal();
+            if (googleTokenClient) {
+                googleTokenClient.requestAccessToken();
+            } else {
+                initGoogleAuth();
+                setTimeout(() => {
+                    if (googleTokenClient) {
+                        googleTokenClient.requestAccessToken();
+                    } else {
+                        alert('Google Sign-In popup is not available. Please use the manual token method.');
+                        showGoogleAuthModal();
+                        // Auto-expand the manual form
+                        setTimeout(() => showManualTokenForm(), 100);
+                    }
+                }, 500);
+            }
+        }
+
+        // Show the manual token form
+        function showManualTokenForm() {
+            const form = document.getElementById('manualTokenForm');
+            const btn = document.getElementById('showManualTokenBtn');
+            if (form && btn) {
+                form.style.display = 'block';
+                btn.style.display = 'none';
+            }
+        }
+
+        function closeGoogleAuthModal() {
+            const modal = document.getElementById('googleAuthModal');
+            if (modal) modal.remove();
+        }
+
+        async function submitGoogleToken() {
+            const tokenInput = document.getElementById('googleAccessTokenInput');
+            const token = tokenInput.value.trim();
+
+            if (!token) {
+                alert('Please enter an access token');
+                return;
+            }
+
+            // Verify the token works by making a test API call
+            try {
+                const response = await fetch('https://www.googleapis.com/drive/v3/about?fields=user', {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+
+                if (!response.ok) {
+                    throw new Error('Invalid token');
+                }
+
+                const data = await response.json();
+
+                // Token is valid, save it
+                googleAccessToken = token;
+                isCloudConnected = true;
+
+                // Save token with 1 hour expiry (typical for OAuth tokens)
+                const expiry = new Date();
+                expiry.setHours(expiry.getHours() + 1);
+                localStorage.setItem('cestisGoogleAccessToken', token);
+                localStorage.setItem('cestisGoogleTokenExpiry', expiry.toISOString());
+
+                closeGoogleAuthModal();
+                updateCloudUI(true);
+
+                alert(`Connected to Google Drive as ${data.user.displayName || data.user.emailAddress}`);
+
+                // Try to find existing backup file
+                await findExistingBackupFile();
+
+            } catch (error) {
+                console.error('Token verification failed:', error);
+                alert('Invalid access token. Please make sure you copied the correct token.');
+            }
+        }
+
+        async function handleGoogleAuthCallback(tokenResponse) {
+            googleAccessToken = tokenResponse.access_token;
+            isCloudConnected = true;
+
+            const expiry = new Date();
+            expiry.setSeconds(expiry.getSeconds() + (tokenResponse.expires_in || 3600));
+            localStorage.setItem('cestisGoogleAccessToken', googleAccessToken);
+            localStorage.setItem('cestisGoogleTokenExpiry', expiry.toISOString());
+
+            updateCloudUI(true);
+
+            // Try to find existing backup file
+            await findExistingBackupFile();
+
+            alert('Connected to Google Drive successfully! You can now save and sync your data.');
+        }
+
+        function handleGoogleAuthError(error) {
+            console.error('Google auth error:', error);
+            if (error.type === 'popup_closed') {
+                // User closed the popup, don't show error
+                return;
+            }
+            alert('Failed to authenticate with Google. Please try the manual token method.');
+            showGoogleAuthModal();
+        }
+
+        // Disconnect from Google Drive
+        function disconnectFromGoogleDrive() {
+            if (confirm('Are you sure you want to disconnect from Google Drive? Your local data will remain intact.')) {
+                googleAccessToken = null;
+                isCloudConnected = false;
+                cloudFileId = null;
+
+                localStorage.removeItem('cestisGoogleAccessToken');
+                localStorage.removeItem('cestisGoogleTokenExpiry');
+                localStorage.removeItem('cestisCloudFileId');
+
+                updateCloudUI(false);
+                toggleCloudMenu();
+
+                alert('Disconnected from Google Drive');
+            }
+        }
+
+        // Find existing backup file in the folder
+        async function findExistingBackupFile() {
+            try {
+                const query = `name='${GOOGLE_DRIVE_CONFIG.BACKUP_FILE_NAME}' and '${GOOGLE_DRIVE_CONFIG.FOLDER_ID}' in parents and trashed=false`;
+                const response = await fetch(
+                    `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(query)}&fields=files(id,name,modifiedTime)`,
+                    {
+                        headers: {
+                            'Authorization': `Bearer ${googleAccessToken}`
+                        }
+                    }
+                );
+
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.files && data.files.length > 0) {
+                        cloudFileId = data.files[0].id;
+                        localStorage.setItem('cestisCloudFileId', cloudFileId);
+                        console.log('Found existing backup file:', cloudFileId);
+                    }
+                }
+            } catch (error) {
+                console.error('Error finding backup file:', error);
+            }
+        }
+
+        // Check cloud file for changes before saving (multi-user conflict detection)
+        async function checkCloudForChanges() {
+            if (!cloudFileId || !googleAccessToken) return null;
+
+            try {
+                // Fetch the current cloud file to check who last saved and when
+                const response = await fetch(
+                    `https://www.googleapis.com/drive/v3/files/${cloudFileId}?alt=media`,
+                    {
+                        headers: {
+                            'Authorization': `Bearer ${googleAccessToken}`
+                        }
+                    }
+                );
+
+                if (response.ok) {
+                    const backupData = await response.json();
+                    return {
+                        savedBy: backupData.savedBy || 'Unknown',
+                        timestamp: backupData.timestamp
+                    };
+                }
+            } catch (error) {
+                console.error('Error checking cloud for changes:', error);
+            }
+            return null;
+        }
+
+        // Save data to Google Drive
+        async function saveToCloud() {
+            if (!isCloudConnected || !googleAccessToken) {
+                alert('Please connect to Google Drive first');
+                return;
+            }
+
+            const menu = document.getElementById('cloudDropdownMenu');
+            menu.classList.remove('show');
+
+            // Check for changes by others before saving
+            const cloudInfo = await checkCloudForChanges();
+
+            let confirmMessage = 'MULTI-USER CLOUD SYNC\n\n';
+            confirmMessage += 'You are about to save to a shared cloud backup.\n\n';
+
+            if (cloudInfo && cloudInfo.savedBy) {
+                const cloudTime = new Date(cloudInfo.timestamp);
+                const timeSinceLastSave = getTimeAgo(cloudTime);
+
+                // Check if someone else saved since our last sync
+                const hasConflict = lastSyncTime && cloudTime > lastSyncTime;
+
+                if (hasConflict && cloudInfo.savedBy !== (currentUser ? currentUser.username : '')) {
+                    confirmMessage += `WARNING: ${cloudInfo.savedBy} saved changes ${timeSinceLastSave}!\n`;
+                    confirmMessage += `Your local data may not include their changes.\n\n`;
+                    confirmMessage += `Recommendation: Click Cancel, then "Sync from Cloud" first.\n\n`;
+                } else {
+                    confirmMessage += `Last saved by: ${cloudInfo.savedBy} (${timeSinceLastSave})\n\n`;
+                }
+            }
+
+            confirmMessage += 'This will overwrite the cloud backup. Continue?';
+
+            if (!confirm(confirmMessage)) {
+                return;
+            }
+
+            setCloudSyncing(true);
+
+            try {
+                // Prepare data for backup
+                const backupData = {
+                    version: '1.0',
+                    timestamp: new Date().toISOString(),
+                    savedBy: currentUser ? currentUser.username : 'Unknown',
+                    data: {
+                        users: users,
+                        students: students,
+                        payments: payments,
+                        documents: documents,
+                        feeStructure: feeStructure
+                    }
+                };
+
+                const jsonContent = JSON.stringify(backupData, null, 2);
+                const blob = new Blob([jsonContent], { type: 'application/json' });
+
+                let response;
+
+                if (cloudFileId) {
+                    // Update existing file
+                    response = await fetch(
+                        `https://www.googleapis.com/upload/drive/v3/files/${cloudFileId}?uploadType=media`,
+                        {
+                            method: 'PATCH',
+                            headers: {
+                                'Authorization': `Bearer ${googleAccessToken}`,
+                                'Content-Type': 'application/json'
+                            },
+                            body: blob
+                        }
+                    );
+                } else {
+                    // Create new file with metadata
+                    const metadata = {
+                        name: GOOGLE_DRIVE_CONFIG.BACKUP_FILE_NAME,
+                        parents: [GOOGLE_DRIVE_CONFIG.FOLDER_ID],
+                        mimeType: 'application/json'
+                    };
+
+                    const formData = new FormData();
+                    formData.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
+                    formData.append('file', blob);
+
+                    response = await fetch(
+                        'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,name',
+                        {
+                            method: 'POST',
+                            headers: {
+                                'Authorization': `Bearer ${googleAccessToken}`
+                            },
+                            body: formData
+                        }
+                    );
+
+                    if (response.ok) {
+                        const result = await response.json();
+                        cloudFileId = result.id;
+                        localStorage.setItem('cestisCloudFileId', cloudFileId);
+                    }
+                }
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.error?.message || 'Upload failed');
+                }
+
+                // Update last sync time
+                lastSyncTime = new Date();
+                localStorage.setItem('cestisLastSyncTime', lastSyncTime.toISOString());
+                updateLastSyncDisplay();
+
+                // Update last saved by info
+                lastSavedBy = currentUser ? currentUser.username : 'Unknown';
+                cloudFileTimestamp = new Date().toISOString();
+                updateLastSavedByDisplay();
+
+                setCloudSyncing(false);
+                alert(`Data saved to Google Drive successfully!\n\nSaved by: ${lastSavedBy}\n\nTip: Let other users know to sync from cloud to get your changes.`);
+
+            } catch (error) {
+                console.error('Error saving to cloud:', error);
+                setCloudSyncing(false);
+
+                if (error.message.includes('invalid_token') || error.message.includes('Invalid Credentials')) {
+                    alert('Your session has expired. Please reconnect to Google Drive.');
+                    disconnectFromGoogleDrive();
+                } else {
+                    alert(`Failed to save to cloud: ${error.message}`);
+                }
+            }
+        }
+
+        // Sync (download) data from Google Drive
+        async function syncFromCloud() {
+            if (!isCloudConnected || !googleAccessToken) {
+                alert('Please connect to Google Drive first');
+                return;
+            }
+
+            const menu = document.getElementById('cloudDropdownMenu');
+            menu.classList.remove('show');
+
+            // First try to find the file if we don't have the ID
+            if (!cloudFileId) {
+                await findExistingBackupFile();
+            }
+
+            if (!cloudFileId) {
+                alert('No backup file found in Google Drive. Save your data first to create a backup.');
+                return;
+            }
+
+            if (!confirm('This will replace your local data with the cloud backup. Are you sure you want to continue?')) {
+                return;
+            }
+
+            setCloudSyncing(true);
+
+            try {
+                // Download the file
+                const response = await fetch(
+                    `https://www.googleapis.com/drive/v3/files/${cloudFileId}?alt=media`,
+                    {
+                        headers: {
+                            'Authorization': `Bearer ${googleAccessToken}`
+                        }
+                    }
+                );
+
+                if (!response.ok) {
+                    throw new Error('Failed to download backup');
+                }
+
+                const backupData = await response.json();
+
+                // Validate backup format
+                if (!backupData.data || !backupData.version) {
+                    throw new Error('Invalid backup file format');
+                }
+
+                // Restore data
+                if (backupData.data.users) {
+                    users = backupData.data.users;
+                    saveUsers();
+                }
+
+                if (backupData.data.students) {
+                    students = backupData.data.students;
+                    localStorage.setItem('cestiSchoolFeeStudents', JSON.stringify(students));
+                }
+
+                if (backupData.data.payments) {
+                    payments = backupData.data.payments;
+                    localStorage.setItem('cestiSchoolFeePayments', JSON.stringify(payments));
+                }
+
+                if (backupData.data.documents) {
+                    documents = backupData.data.documents;
+                    localStorage.setItem('cestiSchoolFeeDocuments', JSON.stringify(documents));
+                }
+
+                if (backupData.data.feeStructure) {
+                    feeStructure = backupData.data.feeStructure;
+                    saveFeeStructure();
+                }
+
+                // Update last sync time
+                lastSyncTime = new Date();
+                localStorage.setItem('cestisLastSyncTime', lastSyncTime.toISOString());
+                updateLastSyncDisplay();
+
+                // Refresh UI
+                renderFeeStructure();
+                renderStudentsTable();
+                renderPaymentsTable();
+                renderDocumentsTable();
+                renderUsersTable();
+                populatePaymentStudentSelect();
+                populateDocumentStudentSelect();
+                updateDashboard();
+
+                setCloudSyncing(false);
+
+                // Update last saved by info
+                lastSavedBy = backupData.savedBy || 'Unknown';
+                cloudFileTimestamp = backupData.timestamp;
+                updateLastSavedByDisplay();
+
+                const backupTime = new Date(backupData.timestamp).toLocaleString();
+                const savedByInfo = backupData.savedBy ? `\nLast saved by: ${backupData.savedBy}` : '';
+                alert(`Data synced from cloud successfully!\n\nBackup was created: ${backupTime}${savedByInfo}`);
+
+            } catch (error) {
+                console.error('Error syncing from cloud:', error);
+                setCloudSyncing(false);
+
+                if (error.message.includes('invalid_token') || error.message.includes('Invalid Credentials')) {
+                    alert('Your session has expired. Please reconnect to Google Drive.');
+                    disconnectFromGoogleDrive();
+                } else {
+                    alert(`Failed to sync from cloud: ${error.message}`);
+                }
+            }
+        }
+
+        // Update last sync display
+        function updateLastSyncDisplay() {
+            const lastSyncInfo = document.getElementById('lastSyncInfo');
+            if (lastSyncTime) {
+                const timeAgo = getTimeAgo(lastSyncTime);
+                lastSyncInfo.textContent = `Last sync: ${timeAgo}`;
+            } else {
+                lastSyncInfo.textContent = 'Last sync: Never';
+            }
+        }
+
+        // Update last saved by display
+        function updateLastSavedByDisplay() {
+            const lastSavedByInfo = document.getElementById('lastSavedByInfo');
+            if (lastSavedByInfo) {
+                if (lastSavedBy && cloudFileTimestamp) {
+                    const timeAgo = getTimeAgo(new Date(cloudFileTimestamp));
+                    lastSavedByInfo.textContent = `Last saved by: ${lastSavedBy} (${timeAgo})`;
+                } else if (lastSavedBy) {
+                    lastSavedByInfo.textContent = `Last saved by: ${lastSavedBy}`;
+                } else {
+                    lastSavedByInfo.textContent = 'Last saved by: --';
+                }
+            }
+        }
+
+        // Get human-readable time ago string
+        function getTimeAgo(date) {
+            const now = new Date();
+            const diffMs = now - date;
+            const diffMins = Math.floor(diffMs / 60000);
+            const diffHours = Math.floor(diffMs / 3600000);
+            const diffDays = Math.floor(diffMs / 86400000);
+
+            if (diffMins < 1) return 'Just now';
+            if (diffMins < 60) return `${diffMins} min${diffMins > 1 ? 's' : ''} ago`;
+            if (diffHours < 24) return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`;
+            return `${diffDays} day${diffDays > 1 ? 's' : ''} ago`;
         }
     </script>
 </body>
