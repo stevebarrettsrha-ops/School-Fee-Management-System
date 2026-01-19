@@ -4363,7 +4363,7 @@
             if (reportType === 'outstanding') {
                 filteredStudents = students.filter(s => s.balance > 0);
             } else if (reportType === 'fullypaid') {
-                filteredStudents = students.filter(s => s.balance <= 0);
+                filteredStudents = students.filter(s => s.status === 'Fully Paid' || s.balance <= 0);
             } else if (reportType === 'payments') {
                 generatePaymentsReport();
                 return;
@@ -4780,7 +4780,7 @@
                 if (reportType === 'outstanding') {
                     filteredStudents = students.filter(s => s.balance > 0);
                 } else if (reportType === 'fullypaid') {
-                    filteredStudents = students.filter(s => s.balance <= 0);
+                    filteredStudents = students.filter(s => s.status === 'Fully Paid' || s.balance <= 0);
                 }
 
                 const totalExpected = filteredStudents.reduce((sum, s) => sum + s.tuitionFee, 0);
@@ -4907,7 +4907,7 @@
                 if (reportType === 'outstanding') {
                     filteredStudents = students.filter(s => s.balance > 0);
                 } else if (reportType === 'fullypaid') {
-                    filteredStudents = students.filter(s => s.balance <= 0);
+                    filteredStudents = students.filter(s => s.status === 'Fully Paid' || s.balance <= 0);
                 }
 
                 const totalExpected = filteredStudents.reduce((sum, s) => sum + s.tuitionFee, 0);
@@ -5032,7 +5032,7 @@
                 filteredStudents = students.filter(s => s.balance > 0);
                 doc.text('Report Type: Outstanding Balances', 14, 38);
             } else if (reportType === 'fullypaid') {
-                filteredStudents = students.filter(s => s.balance <= 0);
+                filteredStudents = students.filter(s => s.status === 'Fully Paid' || s.balance <= 0);
                 doc.text('Report Type: Fully Paid Students', 14, 38);
             } else {
                 doc.text('Report Type: All Students', 14, 38);
