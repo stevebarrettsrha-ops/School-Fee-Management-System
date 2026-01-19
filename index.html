@@ -1428,6 +1428,48 @@
                         <input type="date" id="enrollmentDate">
                     </div>
                 </div>
+
+                <!-- Personal Information Section -->
+                <h3 style="color: var(--primary-blue); margin: 1.5rem 0 1rem; border-top: 1px solid var(--border-color); padding-top: 1rem;">Personal Information</h3>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>Date of Birth</label>
+                        <input type="date" id="dateOfBirth">
+                    </div>
+                    <div class="form-group">
+                        <label>Gender</label>
+                        <select id="gender">
+                            <option value="">Select Gender</option>
+                            <option value="Male">Male</option>
+                            <option value="Female">Female</option>
+                            <option value="Other">Other</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>National ID / Passport</label>
+                        <input type="text" id="nationalId">
+                    </div>
+                    <div class="form-group">
+                        <label>Address</label>
+                        <input type="text" id="address">
+                    </div>
+                    <div class="form-group">
+                        <label>City / Town</label>
+                        <input type="text" id="city">
+                    </div>
+                    <div class="form-group">
+                        <label>Parent / Guardian Name</label>
+                        <input type="text" id="parentName">
+                    </div>
+                    <div class="form-group">
+                        <label>Parent / Guardian Contact</label>
+                        <input type="tel" id="parentContact">
+                    </div>
+                    <div class="form-group">
+                        <label>Emergency Contact</label>
+                        <input type="tel" id="emergencyContact">
+                    </div>
+                </div>
                 <button class="btn" onclick="addStudent()">Add Student</button>
             </div>
 
@@ -1934,6 +1976,49 @@
                         <input type="date" id="editEnrollmentDate">
                     </div>
                 </div>
+
+                <!-- Personal Information Section -->
+                <h3 style="color: var(--primary-blue); margin: 1.5rem 0 1rem; border-top: 1px solid var(--border-color); padding-top: 1rem;">Personal Information</h3>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>Date of Birth</label>
+                        <input type="date" id="editDateOfBirth">
+                    </div>
+                    <div class="form-group">
+                        <label>Gender</label>
+                        <select id="editGender">
+                            <option value="">Select Gender</option>
+                            <option value="Male">Male</option>
+                            <option value="Female">Female</option>
+                            <option value="Other">Other</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>National ID / Passport</label>
+                        <input type="text" id="editNationalId">
+                    </div>
+                    <div class="form-group">
+                        <label>Address</label>
+                        <input type="text" id="editAddress">
+                    </div>
+                    <div class="form-group">
+                        <label>City / Town</label>
+                        <input type="text" id="editCity">
+                    </div>
+                    <div class="form-group">
+                        <label>Parent / Guardian Name</label>
+                        <input type="text" id="editParentName">
+                    </div>
+                    <div class="form-group">
+                        <label>Parent / Guardian Contact</label>
+                        <input type="tel" id="editParentContact">
+                    </div>
+                    <div class="form-group">
+                        <label>Emergency Contact</label>
+                        <input type="tel" id="editEmergencyContact">
+                    </div>
+                </div>
+
                 <div style="background: var(--bg-primary); padding: 1rem; border-radius: 0.5rem; margin: 1rem 0;">
                     <p><strong>Total Paid:</strong> $<span id="editTotalPaid">0.00</span></p>
                     <p><strong>Current Balance:</strong> $<span id="editBalance">0.00</span></p>
@@ -3078,12 +3163,22 @@
             const contact = document.getElementById('contactNumber').value.trim();
             const email = document.getElementById('email').value.trim();
             const enrollmentDate = document.getElementById('enrollmentDate').value;
-            
+
+            // Personal Information fields
+            const dateOfBirth = document.getElementById('dateOfBirth').value;
+            const gender = document.getElementById('gender').value;
+            const nationalId = document.getElementById('nationalId').value.trim();
+            const address = document.getElementById('address').value.trim();
+            const city = document.getElementById('city').value.trim();
+            const parentName = document.getElementById('parentName').value.trim();
+            const parentContact = document.getElementById('parentContact').value.trim();
+            const emergencyContact = document.getElementById('emergencyContact').value.trim();
+
             if (!name || !skillArea) {
                 alert('Please fill in all required fields (Name and Skill Area)');
                 return;
             }
-            
+
             const student = {
                 id: studentId,
                 name: name,
@@ -3092,15 +3187,24 @@
                 contact: contact,
                 email: email,
                 enrollmentDate: enrollmentDate,
+                // Personal Information
+                dateOfBirth: dateOfBirth,
+                gender: gender,
+                nationalId: nationalId,
+                address: address,
+                city: city,
+                parentName: parentName,
+                parentContact: parentContact,
+                emergencyContact: emergencyContact,
                 totalPaid: 0,
                 balance: tuitionFee,
                 status: 'Outstanding',
                 createdAt: new Date().toISOString()
             };
-            
+
             students.push(student);
             saveData();
-            
+
             // Clear form
             document.getElementById('studentName').value = '';
             document.getElementById('studentId').value = '';
@@ -3108,12 +3212,22 @@
             document.getElementById('tuitionFee').value = '';
             document.getElementById('contactNumber').value = '';
             document.getElementById('email').value = '';
-            
+            document.getElementById('enrollmentDate').value = '';
+            // Clear personal info fields
+            document.getElementById('dateOfBirth').value = '';
+            document.getElementById('gender').value = '';
+            document.getElementById('nationalId').value = '';
+            document.getElementById('address').value = '';
+            document.getElementById('city').value = '';
+            document.getElementById('parentName').value = '';
+            document.getElementById('parentContact').value = '';
+            document.getElementById('emergencyContact').value = '';
+
             renderStudentsTable();
             populatePaymentStudentSelect();
             populateDocumentStudentSelect();
             updateDashboard();
-            
+
             alert('Student added successfully!');
         }
 
@@ -3174,21 +3288,35 @@
             const student = students[index];
             const studentPayments = payments.filter(p => p.studentId === student.id);
             const studentDocs = documents.filter(d => d.studentId === student.id);
-            
+
             let content = `
                 <div style="margin-bottom: 1.5rem;">
                     <h3 style="color: var(--primary-blue); margin-bottom: 1rem;">${student.name}</h3>
-                    <p><strong>Student ID:</strong> ${student.id}</p>
-                    <p><strong>Skill Area:</strong> ${student.skillArea}</p>
-                    <p><strong>Tuition Fee:</strong> $${student.tuitionFee.toFixed(2)}</p>
-                    <p><strong>Total Paid:</strong> $${student.totalPaid.toFixed(2)}</p>
-                    <p><strong>Balance:</strong> $${student.balance.toFixed(2)}</p>
-                    <p><strong>Status:</strong> <span class="status-badge status-${getStatusClass(student.status)}">${student.status}</span></p>
-                    <p><strong>Contact:</strong> ${student.contact || 'N/A'}</p>
-                    <p><strong>Email:</strong> ${student.email || 'N/A'}</p>
-                    <p><strong>Enrollment Date:</strong> ${student.enrollmentDate || 'N/A'}</p>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem;">
+                        <p><strong>Student ID:</strong> ${student.id}</p>
+                        <p><strong>Skill Area:</strong> ${student.skillArea}</p>
+                        <p><strong>Tuition Fee:</strong> $${student.tuitionFee.toFixed(2)}</p>
+                        <p><strong>Total Paid:</strong> $${student.totalPaid.toFixed(2)}</p>
+                        <p><strong>Balance:</strong> $${student.balance.toFixed(2)}</p>
+                        <p><strong>Status:</strong> <span class="status-badge status-${getStatusClass(student.status)}">${student.status}</span></p>
+                        <p><strong>Contact:</strong> ${student.contact || 'N/A'}</p>
+                        <p><strong>Email:</strong> ${student.email || 'N/A'}</p>
+                        <p><strong>Enrollment Date:</strong> ${student.enrollmentDate || 'N/A'}</p>
+                    </div>
                 </div>
-                
+
+                <h3 style="color: var(--primary-blue); margin: 1.5rem 0 1rem; border-top: 1px solid var(--border-color); padding-top: 1rem;">Personal Information</h3>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; margin-bottom: 1.5rem;">
+                    <p><strong>Date of Birth:</strong> ${student.dateOfBirth || 'N/A'}</p>
+                    <p><strong>Gender:</strong> ${student.gender || 'N/A'}</p>
+                    <p><strong>National ID:</strong> ${student.nationalId || 'N/A'}</p>
+                    <p><strong>Address:</strong> ${student.address || 'N/A'}</p>
+                    <p><strong>City / Town:</strong> ${student.city || 'N/A'}</p>
+                    <p><strong>Parent / Guardian:</strong> ${student.parentName || 'N/A'}</p>
+                    <p><strong>Parent Contact:</strong> ${student.parentContact || 'N/A'}</p>
+                    <p><strong>Emergency Contact:</strong> ${student.emergencyContact || 'N/A'}</p>
+                </div>
+
                 <h3 style="color: var(--primary-blue); margin-bottom: 1rem;">Payment History</h3>
             `;
             
@@ -3254,7 +3382,7 @@
         function editStudent(index) {
             editingStudentIndex = index;
             const student = students[index];
-            
+
             // Populate edit form
             document.getElementById('editStudentId').value = student.id;
             document.getElementById('editStudentName').value = student.name;
@@ -3266,7 +3394,17 @@
             document.getElementById('editTotalPaid').textContent = student.totalPaid.toFixed(2);
             document.getElementById('editBalance').textContent = student.balance.toFixed(2);
             document.getElementById('editStatus').innerHTML = `<span class="status-badge status-${getStatusClass(student.status)}">${student.status}</span>`;
-            
+
+            // Populate personal information fields
+            document.getElementById('editDateOfBirth').value = student.dateOfBirth || '';
+            document.getElementById('editGender').value = student.gender || '';
+            document.getElementById('editNationalId').value = student.nationalId || '';
+            document.getElementById('editAddress').value = student.address || '';
+            document.getElementById('editCity').value = student.city || '';
+            document.getElementById('editParentName').value = student.parentName || '';
+            document.getElementById('editParentContact').value = student.parentContact || '';
+            document.getElementById('editEmergencyContact').value = student.emergencyContact || '';
+
             // Open modal
             document.getElementById('editStudentModal').classList.add('active');
         }
@@ -3297,29 +3435,39 @@
                 alert('Error: Student not found');
                 return;
             }
-            
+
             const name = document.getElementById('editStudentName').value.trim();
             const skillArea = document.getElementById('editSkillArea').value;
             const contact = document.getElementById('editContactNumber').value.trim();
             const email = document.getElementById('editEmail').value.trim();
             const enrollmentDate = document.getElementById('editEnrollmentDate').value;
-            
+
+            // Personal Information fields
+            const dateOfBirth = document.getElementById('editDateOfBirth').value;
+            const gender = document.getElementById('editGender').value;
+            const nationalId = document.getElementById('editNationalId').value.trim();
+            const address = document.getElementById('editAddress').value.trim();
+            const city = document.getElementById('editCity').value.trim();
+            const parentName = document.getElementById('editParentName').value.trim();
+            const parentContact = document.getElementById('editParentContact').value.trim();
+            const emergencyContact = document.getElementById('editEmergencyContact').value.trim();
+
             if (!name || !skillArea) {
                 alert('Please fill in all required fields (Name and Skill Area)');
                 return;
             }
-            
+
             const student = students[editingStudentIndex];
             const oldSkillArea = student.skillArea;
             const newTuitionFee = feeStructure[skillArea].total;
-            
+
             // Warn if changing skill area with existing payments
             if (oldSkillArea !== skillArea && student.totalPaid > 0) {
                 if (!confirm(`Warning: Changing the skill area will update the tuition fee from $${student.tuitionFee.toFixed(2)} to $${newTuitionFee.toFixed(2)}.\n\nStudent has already paid $${student.totalPaid.toFixed(2)}.\n\nDo you want to continue?`)) {
                     return;
                 }
             }
-            
+
             // Update student data
             student.name = name;
             student.skillArea = skillArea;
@@ -3327,6 +3475,15 @@
             student.contact = contact;
             student.email = email;
             student.enrollmentDate = enrollmentDate;
+            // Update personal information
+            student.dateOfBirth = dateOfBirth;
+            student.gender = gender;
+            student.nationalId = nationalId;
+            student.address = address;
+            student.city = city;
+            student.parentName = parentName;
+            student.parentContact = parentContact;
+            student.emergencyContact = emergencyContact;
             student.balance = newTuitionFee - student.totalPaid;
             
             // Update status based on new balance
@@ -3505,18 +3662,21 @@
             }
             
             saveData();
-            
+
+            // Generate receipt PDF automatically
+            generateReceipt(payment, student);
+
             document.getElementById('paymentStudentId').value = '';
             document.getElementById('paymentAmount').value = '';
             document.getElementById('receiptNumber').value = '';
             document.getElementById('paymentNotes').value = '';
             document.getElementById('studentPaymentInfo').style.display = 'none';
-            
+
             renderPaymentsTable();
             renderStudentsTable();
             updateDashboard();
-            
-            alert('Payment recorded successfully!');
+
+            alert('Payment recorded successfully! Receipt has been generated and downloaded.');
         }
 
         // Render payments table
@@ -3537,6 +3697,7 @@
                     <td>$${payment.amount.toFixed(2)}</td>
                     <td>${payment.method}</td>
                     <td>
+                        <button class="action-btn btn-success" onclick="printReceipt('${payment.id}')" title="Print Receipt">Receipt</button>
                         <button class="action-btn" style="background: #FFA726;" onclick="editPayment('${payment.id}')">Edit</button>
                         <button class="action-btn btn-danger" onclick="deletePayment('${payment.id}')">Delete</button>
                     </td>
@@ -4334,6 +4495,240 @@
             });
             
             doc.save(`CESTI_Report_${new Date().toISOString().split('T')[0]}.pdf`);
+        }
+
+        // Generate Professional Payment Receipt PDF
+        function generateReceipt(payment, student) {
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+            const pageWidth = doc.internal.pageSize.getWidth();
+
+            // Colors
+            const primaryBlue = [13, 71, 161];
+            const lightGreen = [168, 213, 165];
+            const darkGreen = [27, 94, 32];
+
+            // Header background
+            doc.setFillColor(...primaryBlue);
+            doc.rect(0, 0, pageWidth, 45, 'F');
+
+            // Institution name
+            doc.setTextColor(255, 255, 255);
+            doc.setFontSize(22);
+            doc.setFont('helvetica', 'bold');
+            doc.text('CESTI', pageWidth / 2, 18, { align: 'center' });
+
+            // Tagline
+            doc.setFontSize(10);
+            doc.setFont('helvetica', 'normal');
+            doc.setTextColor(...lightGreen);
+            doc.text('Centre for Excellence in Skills Training Institute', pageWidth / 2, 26, { align: 'center' });
+
+            // Receipt title
+            doc.setFontSize(16);
+            doc.setTextColor(255, 255, 255);
+            doc.setFont('helvetica', 'bold');
+            doc.text('PAYMENT RECEIPT', pageWidth / 2, 38, { align: 'center' });
+
+            // Reset text color
+            doc.setTextColor(0, 0, 0);
+
+            // Receipt info box
+            doc.setFillColor(240, 248, 255);
+            doc.roundedRect(14, 52, pageWidth - 28, 25, 3, 3, 'F');
+
+            doc.setFontSize(11);
+            doc.setFont('helvetica', 'bold');
+            doc.text('Receipt No:', 20, 62);
+            doc.setFont('helvetica', 'normal');
+            doc.text(payment.receiptNumber || payment.id, 55, 62);
+
+            doc.setFont('helvetica', 'bold');
+            doc.text('Date:', 120, 62);
+            doc.setFont('helvetica', 'normal');
+            doc.text(payment.date, 138, 62);
+
+            doc.setFont('helvetica', 'bold');
+            doc.text('Payment Method:', 20, 72);
+            doc.setFont('helvetica', 'normal');
+            doc.text(payment.method, 60, 72);
+
+            doc.setFont('helvetica', 'bold');
+            doc.text('Term:', 120, 72);
+            doc.setFont('helvetica', 'normal');
+            doc.text(payment.term, 138, 72);
+
+            // Student Information Section
+            doc.setFillColor(...primaryBlue);
+            doc.rect(14, 85, pageWidth - 28, 8, 'F');
+            doc.setTextColor(255, 255, 255);
+            doc.setFontSize(11);
+            doc.setFont('helvetica', 'bold');
+            doc.text('STUDENT INFORMATION', 20, 91);
+
+            doc.setTextColor(0, 0, 0);
+            doc.setFont('helvetica', 'normal');
+            doc.setFontSize(10);
+
+            let yPos = 102;
+            const leftCol = 20;
+            const rightCol = 110;
+
+            doc.setFont('helvetica', 'bold');
+            doc.text('Student Name:', leftCol, yPos);
+            doc.setFont('helvetica', 'normal');
+            doc.text(student.name, leftCol + 35, yPos);
+
+            doc.setFont('helvetica', 'bold');
+            doc.text('Student ID:', rightCol, yPos);
+            doc.setFont('helvetica', 'normal');
+            doc.text(student.id, rightCol + 28, yPos);
+
+            yPos += 10;
+            doc.setFont('helvetica', 'bold');
+            doc.text('Skill Area:', leftCol, yPos);
+            doc.setFont('helvetica', 'normal');
+            doc.text(student.skillArea, leftCol + 35, yPos);
+
+            doc.setFont('helvetica', 'bold');
+            doc.text('Contact:', rightCol, yPos);
+            doc.setFont('helvetica', 'normal');
+            doc.text(student.contact || 'N/A', rightCol + 28, yPos);
+
+            // Payment Details Section
+            yPos = 135;
+            doc.setFillColor(...primaryBlue);
+            doc.rect(14, yPos - 7, pageWidth - 28, 8, 'F');
+            doc.setTextColor(255, 255, 255);
+            doc.setFontSize(11);
+            doc.setFont('helvetica', 'bold');
+            doc.text('PAYMENT DETAILS', 20, yPos - 1);
+
+            // Payment table
+            yPos += 8;
+            doc.setTextColor(0, 0, 0);
+
+            doc.autoTable({
+                startY: yPos,
+                head: [['Description', 'Amount']],
+                body: [
+                    ['Payment for ' + payment.term + ' - ' + student.skillArea, '$' + payment.amount.toFixed(2)]
+                ],
+                theme: 'grid',
+                headStyles: {
+                    fillColor: [100, 149, 237],
+                    textColor: [255, 255, 255],
+                    fontStyle: 'bold',
+                    fontSize: 10
+                },
+                bodyStyles: {
+                    fontSize: 10
+                },
+                columnStyles: {
+                    0: { cellWidth: 120 },
+                    1: { cellWidth: 40, halign: 'right' }
+                },
+                margin: { left: 14, right: 14 }
+            });
+
+            yPos = doc.lastAutoTable.finalY + 5;
+
+            // Total Amount Box
+            doc.setFillColor(...lightGreen);
+            doc.roundedRect(pageWidth - 80, yPos, 66, 15, 2, 2, 'F');
+            doc.setFontSize(12);
+            doc.setFont('helvetica', 'bold');
+            doc.setTextColor(...darkGreen);
+            doc.text('TOTAL PAID:', pageWidth - 75, yPos + 10);
+            doc.text('$' + payment.amount.toFixed(2), pageWidth - 20, yPos + 10, { align: 'right' });
+
+            // Account Summary
+            yPos += 25;
+            doc.setTextColor(0, 0, 0);
+            doc.setFillColor(250, 250, 250);
+            doc.roundedRect(14, yPos, pageWidth - 28, 35, 3, 3, 'F');
+
+            doc.setFontSize(10);
+            doc.setFont('helvetica', 'bold');
+            doc.text('ACCOUNT SUMMARY', 20, yPos + 10);
+
+            doc.setFont('helvetica', 'normal');
+            doc.text('Total Tuition Fee:', 20, yPos + 20);
+            doc.text('$' + student.tuitionFee.toFixed(2), 80, yPos + 20);
+
+            doc.text('Total Amount Paid:', 110, yPos + 20);
+            doc.text('$' + student.totalPaid.toFixed(2), 165, yPos + 20);
+
+            doc.setFont('helvetica', 'bold');
+            doc.text('Remaining Balance:', 20, yPos + 30);
+            const balanceColor = student.balance <= 0 ? darkGreen : [220, 53, 69];
+            doc.setTextColor(...balanceColor);
+            doc.text('$' + student.balance.toFixed(2), 80, yPos + 30);
+
+            doc.setTextColor(0, 0, 0);
+            doc.setFont('helvetica', 'normal');
+            doc.text('Status:', 110, yPos + 30);
+            doc.setFont('helvetica', 'bold');
+            doc.setTextColor(...(student.status === 'Fully Paid' ? darkGreen : [220, 53, 69]));
+            doc.text(student.status, 165, yPos + 30);
+
+            // Notes Section (if any)
+            if (payment.notes) {
+                yPos += 45;
+                doc.setTextColor(0, 0, 0);
+                doc.setFont('helvetica', 'bold');
+                doc.setFontSize(10);
+                doc.text('Notes:', 20, yPos);
+                doc.setFont('helvetica', 'normal');
+                doc.text(payment.notes, 45, yPos);
+            }
+
+            // Signature Section
+            yPos = 240;
+            doc.setTextColor(0, 0, 0);
+            doc.setFont('helvetica', 'normal');
+            doc.setFontSize(9);
+
+            // Left signature
+            doc.line(20, yPos, 85, yPos);
+            doc.text('Received by (Signature)', 30, yPos + 5);
+
+            // Right signature
+            doc.line(pageWidth - 85, yPos, pageWidth - 20, yPos);
+            doc.text('Authorized Signature', pageWidth - 75, yPos + 5);
+
+            // Footer
+            doc.setFillColor(...primaryBlue);
+            doc.rect(0, 270, pageWidth, 27, 'F');
+
+            doc.setTextColor(255, 255, 255);
+            doc.setFontSize(8);
+            doc.text('This is a computer-generated receipt. Please keep this for your records.', pageWidth / 2, 278, { align: 'center' });
+            doc.text('CESTI - Centre for Excellence in Skills Training Institute', pageWidth / 2, 285, { align: 'center' });
+            doc.text('Generated on: ' + new Date().toLocaleString(), pageWidth / 2, 292, { align: 'center' });
+
+            // Save the PDF
+            const fileName = `Receipt_${payment.receiptNumber || payment.id}_${student.name.replace(/\s+/g, '_')}.pdf`;
+            doc.save(fileName);
+
+            return fileName;
+        }
+
+        // Print receipt for existing payment
+        function printReceipt(paymentId) {
+            const payment = payments.find(p => p.id === paymentId);
+            if (!payment) {
+                alert('Payment not found');
+                return;
+            }
+
+            const student = students.find(s => s.id === payment.studentId);
+            if (!student) {
+                alert('Student not found');
+                return;
+            }
+
+            generateReceipt(payment, student);
         }
 
         // Export to Excel
