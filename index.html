@@ -1765,15 +1765,44 @@
                             <option value="outstanding">Outstanding Balances</option>
                             <option value="fullypaid">Fully Paid</option>
                             <option value="skillarea">By Skill Area</option>
-                            <option value="monthly">Monthly Breakdown</option>
+                            <option value="payments">Payments Report</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Filter Period</label>
+                        <div style="display: flex; align-items: center; gap: 0.5rem;">
+                            <button class="btn btn-secondary" onclick="changeReportMonth(-1)" style="padding: 0.5rem 0.75rem; min-width: auto;">◀</button>
+                            <select id="reportMonth" style="flex: 1;">
+                                <option value="0">January</option>
+                                <option value="1">February</option>
+                                <option value="2">March</option>
+                                <option value="3">April</option>
+                                <option value="4">May</option>
+                                <option value="5">June</option>
+                                <option value="6">July</option>
+                                <option value="7">August</option>
+                                <option value="8">September</option>
+                                <option value="9">October</option>
+                                <option value="10">November</option>
+                                <option value="11">December</option>
+                            </select>
+                            <select id="reportYear" style="width: 100px;"></select>
+                            <button class="btn btn-secondary" onclick="changeReportMonth(1)" style="padding: 0.5rem 0.75rem; min-width: auto;">▶</button>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Date Range</label>
+                        <select id="reportDateRange">
+                            <option value="month">Selected Month Only</option>
+                            <option value="all">All Time</option>
                         </select>
                     </div>
                 </div>
                 <div class="btn-group">
                     <button class="btn" onclick="generateReport()">Generate Report</button>
-                    <button class="btn btn-secondary" onclick="exportToPDF()">📄 Export to PDF</button>
+                    <button class="btn btn-secondary" onclick="exportReportToPDF()">📄 Export to PDF</button>
                     <button class="btn btn-secondary" onclick="exportToExcel()">📊 Export to Excel</button>
-                    <button class="btn btn-secondary" onclick="window.print()">🖨️ Print Report</button>
+                    <button class="btn btn-secondary" onclick="printProfessionalReport()">🖨️ Print Report</button>
                 </div>
             </div>
 
@@ -3005,6 +3034,7 @@
             updateSkillAreaOptions();
             initializeCharts();
             setupDragAndDrop();
+            initializeReportFilters();
 
             // Set today's date as default
             const today = new Date().toISOString().split('T')[0];
@@ -4324,20 +4354,21 @@
             const reportType = document.getElementById('reportType').value;
             const output = document.getElementById('reportOutput');
             const monthlyBreakdown = document.getElementById('monthlyBreakdown');
-            
+            const { periodLabel } = getReportFilterPeriod();
+
             monthlyBreakdown.style.display = 'none';
-            
+
             let filteredStudents = [...students];
-            
+
             if (reportType === 'outstanding') {
                 filteredStudents = students.filter(s => s.balance > 0);
             } else if (reportType === 'fullypaid') {
                 filteredStudents = students.filter(s => s.balance <= 0);
-            } else if (reportType === 'monthly') {
-                generateMonthlyReport();
+            } else if (reportType === 'payments') {
+                generatePaymentsReport();
                 return;
             }
-            
+
             if (reportType === 'skillarea') {
                 const grouped = {};
                 students.forEach(s => {
@@ -4346,12 +4377,12 @@
                     }
                     grouped[s.skillArea].push(s);
                 });
-                
-                let html = '<h3 style="color: var(--primary-blue); margin-bottom: 1rem;">Students by Skill Area</h3>';
+
+                let html = `<h3 style="color: var(--primary-blue); margin-bottom: 1rem;">Students by Skill Area - ${periodLabel}</h3>`;
                 for (const [skillArea, studentList] of Object.entries(grouped)) {
                     const total = studentList.reduce((sum, s) => sum + s.tuitionFee, 0);
                     const collected = studentList.reduce((sum, s) => sum + s.totalPaid, 0);
-                    
+
                     html += `
                         <div style="background: var(--bg-primary); padding: 1rem; border-radius: 0.5rem; margin-bottom: 1rem;">
                             <h4 style="color: var(--primary-blue);">${skillArea} (${studentList.length} students)</h4>
@@ -4363,7 +4394,14 @@
                 }
                 output.innerHTML = html;
             } else {
+                const reportTitles = {
+                    'all': 'All Students',
+                    'outstanding': 'Outstanding Balances',
+                    'fullypaid': 'Fully Paid Students'
+                };
+
                 let html = `
+                    <h3 style="color: var(--primary-blue); margin-bottom: 1rem;">${reportTitles[reportType] || 'Report'} - ${periodLabel}</h3>
                     <table>
                         <thead>
                             <tr>
@@ -4378,7 +4416,7 @@
                         </thead>
                         <tbody>
                 `;
-                
+
                 filteredStudents.forEach(student => {
                     html += `
                         <tr>
@@ -4392,10 +4430,74 @@
                         </tr>
                     `;
                 });
-                
+
                 html += '</tbody></table>';
+
+                // Add summary
+                const totalExpected = filteredStudents.reduce((sum, s) => sum + s.tuitionFee, 0);
+                const totalCollected = filteredStudents.reduce((sum, s) => sum + s.totalPaid, 0);
+                const totalBalance = filteredStudents.reduce((sum, s) => sum + s.balance, 0);
+
+                html += `
+                    <div style="background: var(--bg-primary); padding: 1rem; border-radius: 0.5rem; margin-top: 1rem; display: flex; gap: 2rem; flex-wrap: wrap;">
+                        <div><strong>Total Students:</strong> ${filteredStudents.length}</div>
+                        <div><strong>Total Expected:</strong> $${totalExpected.toFixed(2)}</div>
+                        <div><strong>Total Collected:</strong> $${totalCollected.toFixed(2)}</div>
+                        <div><strong>Total Outstanding:</strong> $${totalBalance.toFixed(2)}</div>
+                    </div>
+                `;
+
                 output.innerHTML = html;
             }
+        }
+
+        // Generate Payments Report with period filter
+        function generatePaymentsReport() {
+            const output = document.getElementById('reportOutput');
+            const { periodLabel } = getReportFilterPeriod();
+            const filteredPayments = filterPaymentsByPeriod(payments);
+
+            const totalAmount = filteredPayments.reduce((sum, p) => sum + p.amount, 0);
+
+            let html = `
+                <h3 style="color: var(--primary-blue); margin-bottom: 1rem;">Payments Report - ${periodLabel}</h3>
+                <div style="background: var(--bg-primary); padding: 1rem; border-radius: 0.5rem; margin-bottom: 1rem; display: flex; gap: 2rem; flex-wrap: wrap;">
+                    <div><strong>Total Payments:</strong> ${filteredPayments.length}</div>
+                    <div><strong>Total Amount:</strong> $${totalAmount.toFixed(2)}</div>
+                </div>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Receipt #</th>
+                            <th>Date</th>
+                            <th>Student</th>
+                            <th>Amount</th>
+                            <th>Method</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+
+            filteredPayments.forEach(payment => {
+                const student = students.find(s => s.id === payment.studentId);
+                html += `
+                    <tr>
+                        <td>${payment.receiptNumber || payment.id}</td>
+                        <td>${new Date(payment.date).toLocaleDateString()}</td>
+                        <td>${student ? student.name : 'Unknown'}</td>
+                        <td>$${payment.amount.toFixed(2)}</td>
+                        <td>${payment.method}</td>
+                    </tr>
+                `;
+            });
+
+            html += '</tbody></table>';
+
+            if (filteredPayments.length === 0) {
+                html += '<p style="text-align: center; color: var(--text-secondary); padding: 2rem;">No payments found for the selected period.</p>';
+            }
+
+            output.innerHTML = html;
         }
 
         function generateMonthlyReport() {
@@ -4451,6 +4553,466 @@
             });
             
             monthsGrid.innerHTML = html;
+        }
+
+        // Initialize Report Filters
+        function initializeReportFilters() {
+            const yearSelect = document.getElementById('reportYear');
+            const monthSelect = document.getElementById('reportMonth');
+            const currentDate = new Date();
+            const currentYear = currentDate.getFullYear();
+            const currentMonth = currentDate.getMonth();
+
+            // Populate years (5 years back to current year)
+            yearSelect.innerHTML = '';
+            for (let year = currentYear - 5; year <= currentYear; year++) {
+                const option = document.createElement('option');
+                option.value = year;
+                option.textContent = year;
+                if (year === currentYear) option.selected = true;
+                yearSelect.appendChild(option);
+            }
+
+            // Set current month
+            monthSelect.value = currentMonth;
+        }
+
+        // Navigate report months
+        function changeReportMonth(direction) {
+            const monthSelect = document.getElementById('reportMonth');
+            const yearSelect = document.getElementById('reportYear');
+
+            let month = parseInt(monthSelect.value);
+            let year = parseInt(yearSelect.value);
+
+            month += direction;
+
+            if (month > 11) {
+                month = 0;
+                year++;
+            } else if (month < 0) {
+                month = 11;
+                year--;
+            }
+
+            // Update year options if needed
+            const minYear = new Date().getFullYear() - 5;
+            const maxYear = new Date().getFullYear();
+
+            if (year < minYear || year > maxYear) {
+                return; // Don't go beyond limits
+            }
+
+            monthSelect.value = month;
+            yearSelect.value = year;
+        }
+
+        // Get filter period info
+        function getReportFilterPeriod() {
+            const dateRange = document.getElementById('reportDateRange').value;
+            const month = parseInt(document.getElementById('reportMonth').value);
+            const year = parseInt(document.getElementById('reportYear').value);
+            const monthNames = ['January', 'February', 'March', 'April', 'May', 'June',
+                               'July', 'August', 'September', 'October', 'November', 'December'];
+
+            return {
+                dateRange,
+                month,
+                year,
+                monthName: monthNames[month],
+                periodLabel: dateRange === 'all' ? 'All Time' : `${monthNames[month]} ${year}`
+            };
+        }
+
+        // Filter payments by period
+        function filterPaymentsByPeriod(paymentsToFilter) {
+            const { dateRange, month, year } = getReportFilterPeriod();
+
+            if (dateRange === 'all') {
+                return paymentsToFilter;
+            }
+
+            return paymentsToFilter.filter(p => {
+                const paymentDate = new Date(p.date);
+                return paymentDate.getMonth() === month && paymentDate.getFullYear() === year;
+            });
+        }
+
+        // Professional Report PDF Export
+        function exportReportToPDF() {
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+            const pageWidth = doc.internal.pageSize.getWidth();
+            const pageHeight = doc.internal.pageSize.getHeight();
+
+            const reportType = document.getElementById('reportType').value;
+            const { periodLabel } = getReportFilterPeriod();
+
+            // Colors
+            const primaryBlue = [13, 71, 161];
+            const lightGreen = [168, 213, 165];
+
+            // Header background
+            doc.setFillColor(...primaryBlue);
+            doc.rect(0, 0, pageWidth, 45, 'F');
+
+            // Institution name
+            doc.setTextColor(255, 255, 255);
+            doc.setFontSize(22);
+            doc.setFont('helvetica', 'bold');
+            doc.text('CESTIS', pageWidth / 2, 18, { align: 'center' });
+
+            // Tagline
+            doc.setFontSize(10);
+            doc.setFont('helvetica', 'normal');
+            doc.setTextColor(...lightGreen);
+            doc.text('Centre for Excellence - Training you for the future', pageWidth / 2, 26, { align: 'center' });
+
+            // Report title
+            doc.setFontSize(16);
+            doc.setTextColor(255, 255, 255);
+            doc.setFont('helvetica', 'bold');
+            doc.text('FINANCIAL REPORT', pageWidth / 2, 38, { align: 'center' });
+
+            // Reset text color
+            doc.setTextColor(0, 0, 0);
+
+            // Report info box
+            doc.setFillColor(240, 248, 255);
+            doc.roundedRect(14, 52, pageWidth - 28, 22, 3, 3, 'F');
+
+            const reportTitles = {
+                'all': 'All Students',
+                'outstanding': 'Outstanding Balances',
+                'fullypaid': 'Fully Paid Students',
+                'skillarea': 'Students by Skill Area',
+                'payments': 'Payments Report'
+            };
+
+            doc.setFontSize(11);
+            doc.setFont('helvetica', 'bold');
+            doc.text('Report Type:', 20, 62);
+            doc.setFont('helvetica', 'normal');
+            doc.text(reportTitles[reportType] || 'Report', 55, 62);
+
+            doc.setFont('helvetica', 'bold');
+            doc.text('Period:', 110, 62);
+            doc.setFont('helvetica', 'normal');
+            doc.text(periodLabel, 130, 62);
+
+            doc.setFont('helvetica', 'bold');
+            doc.text('Generated:', 20, 70);
+            doc.setFont('helvetica', 'normal');
+            doc.text(new Date().toLocaleString(), 50, 70);
+
+            let startY = 82;
+
+            if (reportType === 'payments') {
+                // Payments report
+                const filteredPayments = filterPaymentsByPeriod(payments);
+                const totalAmount = filteredPayments.reduce((sum, p) => sum + p.amount, 0);
+
+                // Summary section
+                doc.setFillColor(240, 248, 255);
+                doc.roundedRect(14, startY, pageWidth - 28, 15, 3, 3, 'F');
+                doc.setFontSize(10);
+                doc.setFont('helvetica', 'bold');
+                doc.text(`Total Payments: ${filteredPayments.length}`, 20, startY + 10);
+                doc.text(`Total Amount: $${totalAmount.toFixed(2)}`, 100, startY + 10);
+
+                startY += 22;
+
+                const tableData = filteredPayments.map(p => {
+                    const student = students.find(s => s.id === p.studentId);
+                    return [
+                        p.receiptNumber || p.id,
+                        new Date(p.date).toLocaleDateString(),
+                        student ? student.name : 'Unknown',
+                        '$' + p.amount.toFixed(2),
+                        p.method
+                    ];
+                });
+
+                doc.autoTable({
+                    head: [['Receipt #', 'Date', 'Student', 'Amount', 'Method']],
+                    body: tableData,
+                    startY: startY,
+                    styles: { fontSize: 9 },
+                    headStyles: { fillColor: primaryBlue }
+                });
+
+            } else if (reportType === 'skillarea') {
+                // Skill area report
+                const grouped = {};
+                students.forEach(s => {
+                    if (!grouped[s.skillArea]) grouped[s.skillArea] = [];
+                    grouped[s.skillArea].push(s);
+                });
+
+                let yPos = startY;
+                for (const [skillArea, studentList] of Object.entries(grouped)) {
+                    const total = studentList.reduce((sum, s) => sum + s.tuitionFee, 0);
+                    const collected = studentList.reduce((sum, s) => sum + s.totalPaid, 0);
+                    const rate = ((collected / total) * 100).toFixed(1);
+
+                    doc.setFillColor(240, 248, 255);
+                    doc.roundedRect(14, yPos, pageWidth - 28, 20, 3, 3, 'F');
+
+                    doc.setFontSize(11);
+                    doc.setFont('helvetica', 'bold');
+                    doc.setTextColor(...primaryBlue);
+                    doc.text(`${skillArea} (${studentList.length} students)`, 20, yPos + 8);
+
+                    doc.setFontSize(9);
+                    doc.setFont('helvetica', 'normal');
+                    doc.setTextColor(0, 0, 0);
+                    doc.text(`Expected: $${total.toFixed(2)}  |  Collected: $${collected.toFixed(2)}  |  Rate: ${rate}%`, 20, yPos + 16);
+
+                    yPos += 25;
+                    if (yPos > pageHeight - 40) {
+                        doc.addPage();
+                        yPos = 20;
+                    }
+                }
+            } else {
+                // Student reports (all, outstanding, fullypaid)
+                let filteredStudents = [...students];
+                if (reportType === 'outstanding') {
+                    filteredStudents = students.filter(s => s.balance > 0);
+                } else if (reportType === 'fullypaid') {
+                    filteredStudents = students.filter(s => s.balance <= 0);
+                }
+
+                const totalExpected = filteredStudents.reduce((sum, s) => sum + s.tuitionFee, 0);
+                const totalCollected = filteredStudents.reduce((sum, s) => sum + s.totalPaid, 0);
+                const totalBalance = filteredStudents.reduce((sum, s) => sum + s.balance, 0);
+
+                // Summary section
+                doc.setFillColor(240, 248, 255);
+                doc.roundedRect(14, startY, pageWidth - 28, 15, 3, 3, 'F');
+                doc.setFontSize(9);
+                doc.setFont('helvetica', 'bold');
+                doc.text(`Students: ${filteredStudents.length}`, 20, startY + 10);
+                doc.text(`Expected: $${totalExpected.toFixed(2)}`, 55, startY + 10);
+                doc.text(`Collected: $${totalCollected.toFixed(2)}`, 105, startY + 10);
+                doc.text(`Outstanding: $${totalBalance.toFixed(2)}`, 155, startY + 10);
+
+                startY += 22;
+
+                const tableData = filteredStudents.map(s => [
+                    s.id,
+                    s.name,
+                    s.skillArea,
+                    '$' + s.tuitionFee.toFixed(2),
+                    '$' + s.totalPaid.toFixed(2),
+                    '$' + s.balance.toFixed(2),
+                    s.status
+                ]);
+
+                doc.autoTable({
+                    head: [['ID', 'Name', 'Skill Area', 'Tuition', 'Paid', 'Balance', 'Status']],
+                    body: tableData,
+                    startY: startY,
+                    styles: { fontSize: 8 },
+                    headStyles: { fillColor: primaryBlue }
+                });
+            }
+
+            // Footer
+            const footerY = pageHeight - 15;
+            doc.setFillColor(...primaryBlue);
+            doc.rect(0, footerY - 5, pageWidth, 20, 'F');
+
+            doc.setTextColor(255, 255, 255);
+            doc.setFontSize(8);
+            doc.text('This is a computer-generated report.', pageWidth / 2, footerY, { align: 'center' });
+            doc.text('CESTIS - Centre for Excellence - Training you for the future', pageWidth / 2, footerY + 5, { align: 'center' });
+
+            // Save
+            const fileName = `CESTIS_${reportTitles[reportType].replace(/\s+/g, '_')}_${periodLabel.replace(/\s+/g, '_')}.pdf`;
+            doc.save(fileName);
+        }
+
+        // Professional Print Report
+        function printProfessionalReport() {
+            const reportType = document.getElementById('reportType').value;
+            const { periodLabel } = getReportFilterPeriod();
+
+            const reportTitles = {
+                'all': 'All Students',
+                'outstanding': 'Outstanding Balances',
+                'fullypaid': 'Fully Paid Students',
+                'skillarea': 'Students by Skill Area',
+                'payments': 'Payments Report'
+            };
+
+            let tableContent = '';
+            let summaryContent = '';
+
+            if (reportType === 'payments') {
+                const filteredPayments = filterPaymentsByPeriod(payments);
+                const totalAmount = filteredPayments.reduce((sum, p) => sum + p.amount, 0);
+
+                summaryContent = `
+                    <div class="summary-row">
+                        <div class="summary-item"><strong>Total Payments:</strong> ${filteredPayments.length}</div>
+                        <div class="summary-item"><strong>Total Amount:</strong> $${totalAmount.toFixed(2)}</div>
+                    </div>
+                `;
+
+                tableContent = `
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Receipt #</th>
+                                <th>Date</th>
+                                <th>Student</th>
+                                <th>Amount</th>
+                                <th>Method</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${filteredPayments.map(p => {
+                                const student = students.find(s => s.id === p.studentId);
+                                return `<tr>
+                                    <td>${p.receiptNumber || p.id}</td>
+                                    <td>${new Date(p.date).toLocaleDateString()}</td>
+                                    <td>${student ? student.name : 'Unknown'}</td>
+                                    <td>$${p.amount.toFixed(2)}</td>
+                                    <td>${p.method}</td>
+                                </tr>`;
+                            }).join('')}
+                        </tbody>
+                    </table>
+                `;
+            } else if (reportType === 'skillarea') {
+                const grouped = {};
+                students.forEach(s => {
+                    if (!grouped[s.skillArea]) grouped[s.skillArea] = [];
+                    grouped[s.skillArea].push(s);
+                });
+
+                tableContent = Object.entries(grouped).map(([skillArea, studentList]) => {
+                    const total = studentList.reduce((sum, s) => sum + s.tuitionFee, 0);
+                    const collected = studentList.reduce((sum, s) => sum + s.totalPaid, 0);
+                    return `
+                        <div class="skill-area-box">
+                            <h3>${skillArea} (${studentList.length} students)</h3>
+                            <p><strong>Expected:</strong> $${total.toFixed(2)} | <strong>Collected:</strong> $${collected.toFixed(2)} | <strong>Rate:</strong> ${((collected/total)*100).toFixed(1)}%</p>
+                        </div>
+                    `;
+                }).join('');
+            } else {
+                let filteredStudents = [...students];
+                if (reportType === 'outstanding') {
+                    filteredStudents = students.filter(s => s.balance > 0);
+                } else if (reportType === 'fullypaid') {
+                    filteredStudents = students.filter(s => s.balance <= 0);
+                }
+
+                const totalExpected = filteredStudents.reduce((sum, s) => sum + s.tuitionFee, 0);
+                const totalCollected = filteredStudents.reduce((sum, s) => sum + s.totalPaid, 0);
+                const totalBalance = filteredStudents.reduce((sum, s) => sum + s.balance, 0);
+
+                summaryContent = `
+                    <div class="summary-row">
+                        <div class="summary-item"><strong>Students:</strong> ${filteredStudents.length}</div>
+                        <div class="summary-item"><strong>Expected:</strong> $${totalExpected.toFixed(2)}</div>
+                        <div class="summary-item"><strong>Collected:</strong> $${totalCollected.toFixed(2)}</div>
+                        <div class="summary-item"><strong>Outstanding:</strong> $${totalBalance.toFixed(2)}</div>
+                    </div>
+                `;
+
+                tableContent = `
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Student ID</th>
+                                <th>Name</th>
+                                <th>Skill Area</th>
+                                <th>Tuition Fee</th>
+                                <th>Paid</th>
+                                <th>Balance</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${filteredStudents.map(s => `
+                                <tr>
+                                    <td>${s.id}</td>
+                                    <td>${s.name}</td>
+                                    <td>${s.skillArea}</td>
+                                    <td>$${s.tuitionFee.toFixed(2)}</td>
+                                    <td>$${s.totalPaid.toFixed(2)}</td>
+                                    <td>$${s.balance.toFixed(2)}</td>
+                                    <td>${s.status}</td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                `;
+            }
+
+            const printWindow = window.open('', '_blank');
+            printWindow.document.write(`
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <title>CESTIS Financial Report</title>
+                    <style>
+                        * { margin: 0; padding: 0; box-sizing: border-box; }
+                        body { font-family: Arial, sans-serif; padding: 20px; color: #333; }
+                        .header { background: #0D47A1; color: white; padding: 20px; text-align: center; margin-bottom: 20px; }
+                        .header h1 { font-size: 24px; margin-bottom: 5px; }
+                        .header .tagline { color: #A8D5A1; font-size: 12px; margin-bottom: 10px; }
+                        .header .report-title { font-size: 18px; font-weight: bold; }
+                        .info-box { background: #f0f8ff; padding: 15px; margin-bottom: 20px; border-radius: 5px; }
+                        .info-row { display: flex; gap: 30px; flex-wrap: wrap; }
+                        .info-item { margin-bottom: 5px; }
+                        .summary-row { background: #f0f8ff; padding: 15px; margin-bottom: 20px; border-radius: 5px; display: flex; gap: 30px; flex-wrap: wrap; }
+                        .summary-item { }
+                        table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+                        th, td { border: 1px solid #ddd; padding: 10px; text-align: left; font-size: 12px; }
+                        th { background: #0D47A1; color: white; }
+                        tr:nth-child(even) { background: #f9f9f9; }
+                        .skill-area-box { background: #f0f8ff; padding: 15px; margin-bottom: 10px; border-radius: 5px; }
+                        .skill-area-box h3 { color: #0D47A1; margin-bottom: 5px; }
+                        .footer { background: #0D47A1; color: white; padding: 15px; text-align: center; margin-top: 20px; font-size: 10px; }
+                        @media print {
+                            body { padding: 0; }
+                            .header, .footer { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+                        }
+                    </style>
+                </head>
+                <body>
+                    <div class="header">
+                        <h1>CESTIS</h1>
+                        <div class="tagline">Centre for Excellence - Training you for the future</div>
+                        <div class="report-title">FINANCIAL REPORT</div>
+                    </div>
+
+                    <div class="info-box">
+                        <div class="info-row">
+                            <div class="info-item"><strong>Report Type:</strong> ${reportTitles[reportType]}</div>
+                            <div class="info-item"><strong>Period:</strong> ${periodLabel}</div>
+                            <div class="info-item"><strong>Generated:</strong> ${new Date().toLocaleString()}</div>
+                        </div>
+                    </div>
+
+                    ${summaryContent}
+                    ${tableContent}
+
+                    <div class="footer">
+                        <p>This is a computer-generated report.</p>
+                        <p>CESTIS - Centre for Excellence - Training you for the future</p>
+                    </div>
+                </body>
+                </html>
+            `);
+            printWindow.document.close();
+            printWindow.onload = function() {
+                printWindow.print();
+            };
         }
 
         // Export to PDF
