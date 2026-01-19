@@ -1758,21 +1758,21 @@
             <div class="form-section">
                 <h2>Generate Report</h2>
                 <div style="display: flex; flex-wrap: wrap; gap: 1rem; align-items: flex-end;">
-                    <div class="form-group" style="flex: 1; min-width: 180px;">
+                    <div class="form-group" style="flex: 0 0 auto; width: 160px;">
                         <label>Report Type</label>
-                        <select id="reportType">
+                        <select id="reportType" style="width: 160px;">
                             <option value="all">All Students</option>
-                            <option value="outstanding">Outstanding Balances</option>
+                            <option value="outstanding">Outstanding</option>
                             <option value="fullypaid">Fully Paid</option>
                             <option value="skillarea">By Skill Area</option>
-                            <option value="payments">Payments Report</option>
+                            <option value="payments">Payments</option>
                         </select>
                     </div>
-                    <div class="form-group" style="flex: 0 0 auto;">
+                    <div class="form-group" style="flex: 1; min-width: 280px;">
                         <label>Filter Period</label>
-                        <div style="display: flex; align-items: center; gap: 0.25rem;">
+                        <div style="display: flex; align-items: center; gap: 0.3rem;">
                             <button class="btn btn-secondary" onclick="changeReportMonth(-1)" style="padding: 0.5rem 0.6rem; min-width: auto;">◀</button>
-                            <select id="reportMonth" style="width: 95px;">
+                            <select id="reportMonth" style="width: 110px;">
                                 <option value="0">January</option>
                                 <option value="1">February</option>
                                 <option value="2">March</option>
@@ -1786,13 +1786,13 @@
                                 <option value="10">November</option>
                                 <option value="11">December</option>
                             </select>
-                            <select id="reportYear" style="width: 70px;"></select>
+                            <select id="reportYear" style="width: 80px;"></select>
                             <button class="btn btn-secondary" onclick="changeReportMonth(1)" style="padding: 0.5rem 0.6rem; min-width: auto;">▶</button>
                         </div>
                     </div>
-                    <div class="form-group" style="flex: 0 0 auto; min-width: 140px;">
+                    <div class="form-group" style="flex: 0 0 auto;">
                         <label>Date Range</label>
-                        <select id="reportDateRange" style="width: 140px;">
+                        <select id="reportDateRange" style="width: 120px;">
                             <option value="month">Month Only</option>
                             <option value="all">All Time</option>
                         </select>
