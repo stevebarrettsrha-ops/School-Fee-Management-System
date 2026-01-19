@@ -5001,7 +5001,7 @@
             // Your Google Drive folder ID from the shared link
             FOLDER_ID: '11vWe_Nc40TtJ1Hi7PoE7EZ3JrpR-K0Vj',
             // File name for backup - unique to this dashboard
-            BACKUP_FILE_NAME: 'School Fee Monitoring Dashboard.json',
+            BACKUP_FILE_NAME: 'school_fee_management_system.json',
             // API scopes needed
             SCOPES: 'https://www.googleapis.com/auth/drive.file'
         };
@@ -5022,7 +5022,7 @@
             const savedToken = localStorage.getItem('cestisGoogleAccessToken');
             const savedExpiry = localStorage.getItem('cestisGoogleTokenExpiry');
             const savedLastSync = localStorage.getItem('cestisLastSyncTime');
-            const savedFileId = localStorage.getItem('cestisCloudFileId');
+            const savedFileId = localStorage.getItem('schoolFeeCloudFileId');
 
             if (savedLastSync) {
                 lastSyncTime = new Date(savedLastSync);
@@ -5325,7 +5325,7 @@
 
                 localStorage.removeItem('cestisGoogleAccessToken');
                 localStorage.removeItem('cestisGoogleTokenExpiry');
-                localStorage.removeItem('cestisCloudFileId');
+                localStorage.removeItem('schoolFeeCloudFileId');
 
                 updateCloudUI(false);
                 toggleCloudMenu();
@@ -5351,7 +5351,7 @@
                     const data = await response.json();
                     if (data.files && data.files.length > 0) {
                         cloudFileId = data.files[0].id;
-                        localStorage.setItem('cestisCloudFileId', cloudFileId);
+                        localStorage.setItem('schoolFeeCloudFileId', cloudFileId);
                         console.log('Found existing backup file:', cloudFileId);
                     }
                 }
@@ -5487,7 +5487,7 @@
                     if (response.ok) {
                         const result = await response.json();
                         cloudFileId = result.id;
-                        localStorage.setItem('cestisCloudFileId', cloudFileId);
+                        localStorage.setItem('schoolFeeCloudFileId', cloudFileId);
                     }
                 }
 
