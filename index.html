@@ -1213,7 +1213,7 @@
 
             <!-- Step 1: Username & Password -->
             <div id="loginStep1">
-                <form onsubmit="handleLogin(event)">
+                <form onsubmit="handleLogin(event); return false;">
                     <div class="input-group">
                         <label>Username</label>
                         <input type="text" id="loginUsername" class="login-input" required autocomplete="username">
@@ -2352,6 +2352,7 @@
         // User Management & Authentication
         let users = [];
         let currentUser = null;
+        let pendingTwoFAUser = null;
 
         // Initialize default admin account
         function initializeDefaultAdmin() {
@@ -5847,7 +5848,7 @@
         // Temporary storage for 2FA setup
         let pendingTwoFASecret = null;
         let pendingBackupCodes = null;
-        let pendingTwoFAUser = null;
+        // pendingTwoFAUser is declared at the top of the script
 
         // Generate a random base32 secret for TOTP
         function generateTOTPSecret() {
