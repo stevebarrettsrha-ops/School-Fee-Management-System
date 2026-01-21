@@ -1213,17 +1213,19 @@
 
             <!-- Step 1: Username & Password -->
             <div id="loginStep1">
-                <div class="input-group">
-                    <label>Username</label>
-                    <input type="text" id="loginUsername" class="login-input" autocomplete="username">
-                </div>
+                <form onsubmit="handleLogin(event)">
+                    <div class="input-group">
+                        <label>Username</label>
+                        <input type="text" id="loginUsername" class="login-input" required autocomplete="username">
+                    </div>
 
-                <div class="input-group">
-                    <label>Password</label>
-                    <input type="password" id="loginPassword" class="login-input" autocomplete="current-password" onkeypress="if(event.key==='Enter')handleLogin()">
-                </div>
+                    <div class="input-group">
+                        <label>Password</label>
+                        <input type="password" id="loginPassword" class="login-input" required autocomplete="current-password">
+                    </div>
 
-                <button type="button" class="login-btn" onclick="handleLogin()">Login</button>
+                    <button type="submit" class="login-btn">Login</button>
+                </form>
             </div>
 
             <!-- Step 2: 2FA Verification -->
@@ -2350,7 +2352,6 @@
         // User Management & Authentication
         let users = [];
         let currentUser = null;
-        let pendingTwoFAUser = null;
 
         // Initialize default admin account
         function initializeDefaultAdmin() {
@@ -2380,38 +2381,33 @@
 
         // Handle login
         function handleLogin(event) {
-            try {
-                if (event) event.preventDefault();
+            event.preventDefault();
 
-                const username = document.getElementById('loginUsername').value.trim();
-                const password = document.getElementById('loginPassword').value;
+            const username = document.getElementById('loginUsername').value.trim();
+            const password = document.getElementById('loginPassword').value;
 
-                const user = users.find(u => u.username === username && u.password === password);
+            const user = users.find(u => u.username === username && u.password === password);
 
-                if (user) {
-                    // Check if user has 2FA enabled
-                    if (user.twoFactorEnabled && user.twoFactorSecret) {
-                        // Store user temporarily and show 2FA step
-                        pendingTwoFAUser = user;
-                        document.getElementById('loginStep1').style.display = 'none';
-                        document.getElementById('loginStep2FA').style.display = 'block';
-                        document.getElementById('login2FACode').focus();
-                    } else {
-                        // No 2FA, complete login directly
-                        completeLogin(user);
-                    }
+            if (user) {
+                // Check if user has 2FA enabled
+                if (user.twoFactorEnabled && user.twoFactorSecret) {
+                    // Store user temporarily and show 2FA step
+                    pendingTwoFAUser = user;
+                    document.getElementById('loginStep1').style.display = 'none';
+                    document.getElementById('loginStep2FA').style.display = 'block';
+                    document.getElementById('login2FACode').focus();
                 } else {
-                    const errorDiv = document.getElementById('loginError');
-                    errorDiv.textContent = '❌ Invalid username or password';
-                    errorDiv.style.display = 'block';
-
-                    setTimeout(() => {
-                        errorDiv.style.display = 'none';
-                    }, 3000);
+                    // No 2FA, complete login directly
+                    completeLogin(user);
                 }
-            } catch (error) {
-                console.error('Login error:', error);
-                alert('Login error: ' + error.message);
+            } else {
+                const errorDiv = document.getElementById('loginError');
+                errorDiv.textContent = '❌ Invalid username or password';
+                errorDiv.style.display = 'block';
+
+                setTimeout(() => {
+                    errorDiv.style.display = 'none';
+                }, 3000);
             }
         }
 
@@ -3977,10 +3973,10 @@
             return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
         }
 
-        async function uploadDocuments() {
+        function uploadDocuments() {
             const studentId = document.getElementById('docStudentId').value;
             const docTypeSelect = document.getElementById('docType').value;
-
+            
             // Determine the document type (custom or predefined)
             let docType = docTypeSelect;
             if (docTypeSelect === 'Custom') {
@@ -3991,58 +3987,43 @@
                 }
                 docType = customType;
             }
-
+            
             if (!studentId) {
                 alert('Please select a student');
                 return;
             }
-
+            
             if (selectedFiles.length === 0) {
                 alert('Please select files to upload');
                 return;
             }
-
+            
             const student = students.find(s => s.id === studentId);
             if (!student) {
                 alert('Student not found');
                 return;
             }
-
-            // Helper function to read file as Base64
-            function readFileAsBase64(file) {
-                return new Promise((resolve, reject) => {
-                    const reader = new FileReader();
-                    reader.onload = () => resolve(reader.result);
-                    reader.onerror = reject;
-                    reader.readAsDataURL(file);
-                });
-            }
-
+            
             let uploadedCount = 0;
-            for (const file of selectedFiles) {
-                try {
-                    const fileData = await readFileAsBase64(file);
-                    const doc = {
-                        id: 'DOC' + Date.now() + Math.random(),
-                        studentId: studentId,
-                        studentName: student.name,
-                        type: docType,
-                        fileName: file.name,
-                        size: file.size,
-                        uploadDate: new Date().toISOString().split('T')[0],
-                        fileData: fileData // Store actual Base64 file data
-                    };
-                    documents.push(doc);
-                    uploadedCount++;
-                } catch (error) {
-                    console.error('Error reading file:', file.name, error);
-                }
-            }
-
+            selectedFiles.forEach(file => {
+                const doc = {
+                    id: 'DOC' + Date.now() + Math.random(),
+                    studentId: studentId,
+                    studentName: student.name,
+                    type: docType,
+                    fileName: file.name,
+                    size: file.size,
+                    uploadDate: new Date().toISOString().split('T')[0],
+                    fileData: null // In real app, would store base64 or upload to server
+                };
+                documents.push(doc);
+                uploadedCount++;
+            });
+            
             saveData();
             renderDocumentsTable();
             updateDocumentTypeFilter();
-
+            
             document.getElementById('docStudentId').value = '';
             document.getElementById('docType').value = 'ID Card';
             document.getElementById('customDocType').value = '';
@@ -4050,7 +4031,7 @@
             selectedFiles = [];
             displaySelectedFiles();
             document.getElementById('fileInput').value = '';
-
+            
             alert(`✅ ${uploadedCount} document(s) uploaded successfully!`);
         }
 
@@ -4074,7 +4055,6 @@
                     <td>${formatFileSize(doc.size)}</td>
                     <td>
                         <button class="action-btn btn-primary" onclick="viewDocumentPrint('${doc.id}')" style="background: var(--primary-blue);">View</button>
-                        <button class="action-btn" onclick="printFullDocument('${doc.id}')" style="background: #9C27B0; color: white;">Print</button>
                         <button class="action-btn btn-success" onclick="downloadDocument('${doc.id}')">Download</button>
                         <button class="action-btn btn-danger" onclick="deleteDocument('${doc.id}')">Delete</button>
                     </td>
@@ -4119,154 +4099,7 @@
         }
 
         function downloadDocument(docId) {
-            const doc = documents.find(d => d.id === docId);
-            if (!doc) {
-                alert('Document not found');
-                return;
-            }
-
-            if (!doc.fileData) {
-                alert('File data not available for this document. The document may have been uploaded before file storage was enabled.');
-                return;
-            }
-
-            // Create a temporary link element to trigger download
-            const link = document.createElement('a');
-            link.href = doc.fileData;
-            link.download = doc.fileName;
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-        }
-
-        // Print full document - opens the actual document in a new window for printing
-        function printFullDocument(docId) {
-            const doc = documents.find(d => d.id === docId);
-            if (!doc) {
-                alert('Document not found');
-                return;
-            }
-
-            if (!doc.fileData) {
-                alert('File data not available for this document. The document may have been uploaded before file storage was enabled.');
-                return;
-            }
-
-            const fileExtension = doc.fileName.split('.').pop().toLowerCase();
-            const printWindow = window.open('', '_blank');
-
-            if (['jpg', 'jpeg', 'png', 'gif'].includes(fileExtension)) {
-                // For images, display full image with print option
-                printWindow.document.write(`
-                    <!DOCTYPE html>
-                    <html>
-                    <head>
-                        <title>${doc.fileName} - Print</title>
-                        <style>
-                            * { margin: 0; padding: 0; box-sizing: border-box; }
-                            body { font-family: Arial, sans-serif; background: #f5f5f5; }
-                            .toolbar { background: #333; color: white; padding: 10px 20px; display: flex; gap: 10px; align-items: center; }
-                            .toolbar button { background: #0D47A1; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; }
-                            .toolbar button:hover { background: #1565C0; }
-                            .toolbar .close-btn { background: #666; }
-                            .toolbar .close-btn:hover { background: #888; }
-                            .toolbar .file-name { margin-left: auto; font-size: 14px; }
-                            .content { padding: 20px; text-align: center; }
-                            .content img { max-width: 100%; height: auto; box-shadow: 0 2px 10px rgba(0,0,0,0.2); }
-                            @media print {
-                                .toolbar { display: none; }
-                                body { background: white; }
-                                .content { padding: 0; }
-                                .content img { max-width: 100%; max-height: 100vh; box-shadow: none; }
-                            }
-                        </style>
-                    </head>
-                    <body>
-                        <div class="toolbar">
-                            <button onclick="window.print()">🖨️ Print</button>
-                            <button class="close-btn" onclick="window.close()">✕ Close</button>
-                            <span class="file-name">${doc.fileName}</span>
-                        </div>
-                        <div class="content">
-                            <img src="${doc.fileData}" alt="${doc.fileName}">
-                        </div>
-                    </body>
-                    </html>
-                `);
-            } else if (fileExtension === 'pdf') {
-                // For PDFs, embed the PDF viewer
-                printWindow.document.write(`
-                    <!DOCTYPE html>
-                    <html>
-                    <head>
-                        <title>${doc.fileName} - Print</title>
-                        <style>
-                            * { margin: 0; padding: 0; box-sizing: border-box; }
-                            body { font-family: Arial, sans-serif; }
-                            .toolbar { background: #333; color: white; padding: 10px 20px; display: flex; gap: 10px; align-items: center; }
-                            .toolbar button { background: #0D47A1; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; }
-                            .toolbar button:hover { background: #1565C0; }
-                            .toolbar .close-btn { background: #666; }
-                            .toolbar .close-btn:hover { background: #888; }
-                            .toolbar .file-name { margin-left: auto; font-size: 14px; }
-                            .pdf-container { width: 100%; height: calc(100vh - 50px); }
-                            .pdf-container iframe { width: 100%; height: 100%; border: none; }
-                            @media print {
-                                .toolbar { display: none; }
-                                .pdf-container { height: 100vh; }
-                            }
-                        </style>
-                    </head>
-                    <body>
-                        <div class="toolbar">
-                            <button onclick="window.print()">🖨️ Print</button>
-                            <button class="close-btn" onclick="window.close()">✕ Close</button>
-                            <span class="file-name">${doc.fileName}</span>
-                        </div>
-                        <div class="pdf-container">
-                            <iframe src="${doc.fileData}"></iframe>
-                        </div>
-                    </body>
-                    </html>
-                `);
-            } else {
-                // For other file types, show message and offer download
-                printWindow.document.write(`
-                    <!DOCTYPE html>
-                    <html>
-                    <head>
-                        <title>${doc.fileName}</title>
-                        <style>
-                            body { font-family: Arial, sans-serif; padding: 40px; text-align: center; background: #f5f5f5; }
-                            .message { background: white; padding: 40px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); max-width: 500px; margin: 0 auto; }
-                            h2 { color: #333; margin-bottom: 20px; }
-                            p { color: #666; margin-bottom: 20px; }
-                            button { background: #0D47A1; color: white; border: none; padding: 12px 24px; border-radius: 5px; cursor: pointer; margin: 5px; }
-                            button:hover { background: #1565C0; }
-                            .close-btn { background: #666; }
-                        </style>
-                    </head>
-                    <body>
-                        <div class="message">
-                            <h2>📄 ${doc.fileName}</h2>
-                            <p>This file type (${fileExtension.toUpperCase()}) cannot be displayed directly in the browser for printing.</p>
-                            <p>Please download the file and open it with the appropriate application to print.</p>
-                            <button onclick="downloadFile()">⬇️ Download File</button>
-                            <button class="close-btn" onclick="window.close()">✕ Close</button>
-                        </div>
-                        <script>
-                            function downloadFile() {
-                                const link = document.createElement('a');
-                                link.href = '${doc.fileData}';
-                                link.download = '${doc.fileName}';
-                                link.click();
-                            }
-                        </script>
-                    </body>
-                    </html>
-                `);
-            }
-            printWindow.document.close();
+            alert('Download functionality would retrieve the file from storage/server');
         }
 
         function deleteDocument(docId) {
@@ -5851,7 +5684,7 @@
         // Temporary storage for 2FA setup
         let pendingTwoFASecret = null;
         let pendingBackupCodes = null;
-        // pendingTwoFAUser is declared at the top of the script
+        let pendingTwoFAUser = null;
 
         // Generate a random base32 secret for TOTP
         function generateTOTPSecret() {
