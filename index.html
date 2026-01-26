@@ -1702,10 +1702,25 @@
                 </select>
             </div>
 
+            <!-- Merge Controls -->
+            <div id="mergeControls" style="margin-bottom: 1rem; display: none; align-items: center; gap: 1rem; padding: 1rem; background: #F3E5F5; border-radius: 0.5rem; border: 2px solid #9C27B0;">
+                <span id="selectedCount" style="font-weight: bold; color: #7B1FA2;">0 students selected</span>
+                <button class="btn" onclick="openMergeModal()" style="background: #9C27B0; color: white;">
+                    Merge Selected Students
+                </button>
+                <button class="btn" onclick="findAndShowDuplicates()" style="background: #FF9800; color: white;">
+                    Find Duplicates
+                </button>
+                <button class="btn" onclick="clearMergeSelection()" style="background: #757575; color: white;">
+                    Clear Selection
+                </button>
+            </div>
+
             <div class="table-container">
                 <table id="studentsTable">
                     <thead>
                         <tr>
+                            <th style="width: 40px;">Select</th>
                             <th>Student ID</th>
                             <th>Name</th>
                             <th>Skill Area</th>
@@ -2263,6 +2278,50 @@
                 <div class="btn-group">
                     <button class="btn" onclick="saveStudentEdit()">💾 Save Changes</button>
                     <button class="btn btn-secondary" onclick="closeModal('editStudentModal')">Cancel</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Merge Students Modal -->
+    <div id="mergeStudentModal" class="modal">
+        <div class="modal-content" style="max-width: 900px;">
+            <div class="modal-header" style="background: #9C27B0;">
+                <h2 style="color: white;">Merge Students</h2>
+                <button class="close-btn" onclick="closeModal('mergeStudentModal')" style="color: white;">&times;</button>
+            </div>
+            <div style="padding: 1.5rem;">
+                <div style="background: #FFF3E0; padding: 1rem; border-radius: 0.5rem; margin-bottom: 1.5rem; border-left: 4px solid #FF9800;">
+                    <strong>Warning:</strong> This action will merge two student records into one. All payments and documents will be combined. This cannot be undone.
+                </div>
+                <div id="mergeComparisonTable"></div>
+                <div class="form-group" style="margin-top: 1.5rem;">
+                    <label style="font-weight: bold;">What to do with related payments & documents?</label>
+                    <select id="mergeDataAction" style="width: 100%; padding: 0.75rem; border-radius: 0.5rem; border: 1px solid var(--border-color);">
+                        <option value="combine">Combine all records under merged student</option>
+                        <option value="keepPrimary">Keep only primary student's records (delete others)</option>
+                    </select>
+                </div>
+                <div class="btn-group" style="margin-top: 1.5rem; display: flex; gap: 1rem;">
+                    <button class="btn" onclick="executeMerge()" style="background: #9C27B0; color: white; flex: 1;">Confirm Merge</button>
+                    <button class="btn btn-secondary" onclick="closeModal('mergeStudentModal')" style="flex: 1;">Cancel</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Duplicates Found Modal -->
+    <div id="duplicatesModal" class="modal">
+        <div class="modal-content" style="max-width: 800px;">
+            <div class="modal-header" style="background: #FF9800;">
+                <h2 style="color: white;">Potential Duplicates Found</h2>
+                <button class="close-btn" onclick="closeModal('duplicatesModal')" style="color: white;">&times;</button>
+            </div>
+            <div style="padding: 1.5rem;">
+                <p style="margin-bottom: 1rem;">The following students may be duplicates based on similar names, emails, or contact numbers:</p>
+                <div id="duplicatesListContent"></div>
+                <div class="btn-group" style="margin-top: 1.5rem;">
+                    <button class="btn btn-secondary" onclick="closeModal('duplicatesModal')">Close</button>
                 </div>
             </div>
         </div>
@@ -3733,13 +3792,24 @@
         }
 
         // Render students table
+        // Track selected students for merge
+        let selectedForMerge = [];
+
         function renderStudentsTable() {
             const tbody = document.getElementById('studentsTableBody');
             tbody.innerHTML = '';
-            
+
             students.forEach((student, index) => {
+                const isSelected = selectedForMerge.includes(index);
                 const row = tbody.insertRow();
                 row.innerHTML = `
+                    <td style="text-align: center;">
+                        <input type="checkbox" class="merge-checkbox"
+                               data-index="${index}"
+                               ${isSelected ? 'checked' : ''}
+                               onchange="toggleStudentSelection(${index})"
+                               style="width: 18px; height: 18px; cursor: pointer;">
+                    </td>
                     <td>${student.id}</td>
                     <td>${student.name}</td>
                     <td>${student.skillArea}</td>
@@ -3754,6 +3824,7 @@
                     </td>
                 `;
             });
+            updateMergeControls();
         }
 
         // Get status class
@@ -3768,21 +3839,386 @@
             const searchTerm = document.getElementById('searchStudent').value.toLowerCase();
             const skillFilter = document.getElementById('filterSkillArea').value;
             const statusFilter = document.getElementById('filterPaymentStatus').value;
-            
+
             const rows = document.querySelectorAll('#studentsTableBody tr');
-            
+
             rows.forEach(row => {
                 const text = row.textContent.toLowerCase();
-                const skillArea = row.cells[2].textContent;
+                const skillArea = row.cells[3].textContent; // Updated index due to checkbox column
                 const status = row.querySelector('.status-badge').textContent;
-                
+
                 const matchesSearch = text.includes(searchTerm);
                 const matchesSkill = !skillFilter || skillArea === skillFilter;
                 const matchesStatus = !statusFilter || status === statusFilter;
-                
+
                 row.style.display = (matchesSearch && matchesSkill && matchesStatus) ? '' : 'none';
             });
         }
+
+        // ==================== MERGE STUDENTS FUNCTIONALITY ====================
+
+        // Toggle student selection for merge
+        function toggleStudentSelection(index) {
+            const pos = selectedForMerge.indexOf(index);
+            if (pos > -1) {
+                selectedForMerge.splice(pos, 1);
+            } else {
+                if (selectedForMerge.length < 2) {
+                    selectedForMerge.push(index);
+                } else {
+                    alert('You can only select 2 students to merge at a time. Please deselect one first.');
+                    // Uncheck the checkbox
+                    const checkbox = document.querySelector(`.merge-checkbox[data-index="${index}"]`);
+                    if (checkbox) checkbox.checked = false;
+                    return;
+                }
+            }
+            updateMergeControls();
+        }
+
+        // Update merge controls visibility and count
+        function updateMergeControls() {
+            const controls = document.getElementById('mergeControls');
+            const countSpan = document.getElementById('selectedCount');
+
+            if (selectedForMerge.length > 0) {
+                controls.style.display = 'flex';
+                countSpan.textContent = `${selectedForMerge.length} student${selectedForMerge.length > 1 ? 's' : ''} selected`;
+            } else {
+                controls.style.display = 'none';
+            }
+        }
+
+        // Clear merge selection
+        function clearMergeSelection() {
+            selectedForMerge = [];
+            renderStudentsTable();
+        }
+
+        // Open merge modal with comparison table
+        function openMergeModal() {
+            if (selectedForMerge.length !== 2) {
+                alert('Please select exactly 2 students to merge.');
+                return;
+            }
+
+            const student1 = students[selectedForMerge[0]];
+            const student2 = students[selectedForMerge[1]];
+
+            // Define fields to compare
+            const fields = [
+                { key: 'name', label: 'Name' },
+                { key: 'id', label: 'Student ID' },
+                { key: 'skillArea', label: 'Skill Area' },
+                { key: 'contact', label: 'Contact Number' },
+                { key: 'email', label: 'Email' },
+                { key: 'enrollmentDate', label: 'Enrollment Date' },
+                { key: 'dateOfBirth', label: 'Date of Birth' },
+                { key: 'gender', label: 'Gender' },
+                { key: 'nationalId', label: 'National ID' },
+                { key: 'address', label: 'Address' },
+                { key: 'city', label: 'City' },
+                { key: 'parentName', label: 'Parent/Guardian' },
+                { key: 'parentContact', label: 'Parent Contact' },
+                { key: 'emergencyContact', label: 'Emergency Contact' }
+            ];
+
+            let html = `
+                <table style="width: 100%; border-collapse: collapse; margin-bottom: 1rem;">
+                    <thead>
+                        <tr style="background: var(--primary-blue); color: white;">
+                            <th style="padding: 0.75rem; border: 1px solid var(--border-color); text-align: left;">Field</th>
+                            <th style="padding: 0.75rem; border: 1px solid var(--border-color); text-align: left;">Student A</th>
+                            <th style="padding: 0.75rem; border: 1px solid var(--border-color); text-align: left;">Student B</th>
+                            <th style="padding: 0.75rem; border: 1px solid var(--border-color); text-align: center;">Keep Value From</th>
+                        </tr>
+                    </thead>
+                    <tbody>`;
+
+            fields.forEach(field => {
+                const val1 = student1[field.key] || '-';
+                const val2 = student2[field.key] || '-';
+                const isDifferent = val1 !== val2;
+                const rowStyle = isDifferent ? 'background: #FFF8E1;' : '';
+
+                html += `
+                    <tr style="${rowStyle}">
+                        <td style="padding: 0.5rem; border: 1px solid var(--border-color); font-weight: bold;">${field.label}</td>
+                        <td style="padding: 0.5rem; border: 1px solid var(--border-color);">${val1}</td>
+                        <td style="padding: 0.5rem; border: 1px solid var(--border-color);">${val2}</td>
+                        <td style="padding: 0.5rem; border: 1px solid var(--border-color); text-align: center;">
+                            <select id="merge_${field.key}" style="width: 100%; padding: 0.5rem; border-radius: 0.25rem; border: 1px solid var(--border-color);">
+                                <option value="A">A: ${val1}</option>
+                                <option value="B">B: ${val2}</option>
+                            </select>
+                        </td>
+                    </tr>`;
+            });
+
+            // Financial summary (auto-combined)
+            const combinedPaid = student1.totalPaid + student2.totalPaid;
+            const tuitionFee = student1.tuitionFee; // Will use selected skill area's fee
+
+            html += `
+                    </tbody>
+                </table>
+
+                <div style="background: #E8F5E9; padding: 1rem; border-radius: 0.5rem; border: 1px solid #4CAF50;">
+                    <h4 style="color: #2E7D32; margin-bottom: 0.5rem;">Financial Summary (Auto-Combined)</h4>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem;">
+                        <p><strong>Student A Paid:</strong> $${student1.totalPaid.toFixed(2)}</p>
+                        <p><strong>Student B Paid:</strong> $${student2.totalPaid.toFixed(2)}</p>
+                        <p style="grid-column: 1/-1; font-size: 1.1rem; color: #1B5E20;">
+                            <strong>Combined Total Paid: $${combinedPaid.toFixed(2)}</strong>
+                        </p>
+                    </div>
+                </div>`;
+
+            document.getElementById('mergeComparisonTable').innerHTML = html;
+            document.getElementById('mergeStudentModal').style.display = 'flex';
+        }
+
+        // Execute the merge operation
+        function executeMerge() {
+            if (selectedForMerge.length !== 2) {
+                alert('Invalid selection. Please try again.');
+                return;
+            }
+
+            const idx1 = selectedForMerge[0];
+            const idx2 = selectedForMerge[1];
+            const student1 = students[idx1];
+            const student2 = students[idx2];
+
+            // Build merged student starting with student1 as base
+            const mergedStudent = { ...student1 };
+
+            // Apply field selections
+            const fields = ['name', 'id', 'skillArea', 'contact', 'email', 'enrollmentDate',
+                           'dateOfBirth', 'gender', 'nationalId', 'address', 'city',
+                           'parentName', 'parentContact', 'emergencyContact'];
+
+            fields.forEach(field => {
+                const selectEl = document.getElementById(`merge_${field}`);
+                if (selectEl) {
+                    const selection = selectEl.value;
+                    mergedStudent[field] = selection === 'A' ? student1[field] : student2[field];
+                }
+            });
+
+            // Update tuition fee based on selected skill area
+            if (feeStructure[mergedStudent.skillArea]) {
+                mergedStudent.tuitionFee = feeStructure[mergedStudent.skillArea].total;
+            }
+
+            // Combine financial data
+            mergedStudent.totalPaid = student1.totalPaid + student2.totalPaid;
+            mergedStudent.balance = mergedStudent.tuitionFee - mergedStudent.totalPaid;
+
+            // Update status based on balance
+            if (mergedStudent.balance <= 0) {
+                mergedStudent.status = 'Fully Paid';
+                mergedStudent.balance = 0;
+            } else if (mergedStudent.totalPaid > 0) {
+                mergedStudent.status = 'Partial Payment';
+            } else {
+                mergedStudent.status = 'Outstanding';
+            }
+
+            // Handle payments and documents
+            const dataAction = document.getElementById('mergeDataAction').value;
+            const oldId1 = student1.id;
+            const oldId2 = student2.id;
+            const newId = mergedStudent.id;
+
+            if (dataAction === 'combine') {
+                // Re-link all payments from both students to merged student
+                payments.forEach(payment => {
+                    if (payment.studentId === oldId1 || payment.studentId === oldId2) {
+                        payment.studentId = newId;
+                        payment.studentName = mergedStudent.name;
+                        payment.skillArea = mergedStudent.skillArea;
+                    }
+                });
+
+                // Re-link all documents from both students to merged student
+                documents.forEach(doc => {
+                    if (doc.studentId === oldId1 || doc.studentId === oldId2) {
+                        doc.studentId = newId;
+                        doc.studentName = mergedStudent.name;
+                    }
+                });
+            } else {
+                // Keep only primary student's records, delete secondary student's records
+                const secondaryId = oldId2;
+
+                // Remove secondary student's payments
+                for (let i = payments.length - 1; i >= 0; i--) {
+                    if (payments[i].studentId === secondaryId) {
+                        payments.splice(i, 1);
+                    }
+                }
+
+                // Remove secondary student's documents
+                for (let i = documents.length - 1; i >= 0; i--) {
+                    if (documents[i].studentId === secondaryId) {
+                        documents.splice(i, 1);
+                    }
+                }
+
+                // Update primary student's records with new info
+                payments.forEach(payment => {
+                    if (payment.studentId === oldId1) {
+                        payment.studentId = newId;
+                        payment.studentName = mergedStudent.name;
+                        payment.skillArea = mergedStudent.skillArea;
+                    }
+                });
+
+                documents.forEach(doc => {
+                    if (doc.studentId === oldId1) {
+                        doc.studentId = newId;
+                        doc.studentName = mergedStudent.name;
+                    }
+                });
+            }
+
+            // Remove old students (higher index first to avoid shifting issues)
+            const indices = [idx1, idx2].sort((a, b) => b - a);
+            indices.forEach(idx => students.splice(idx, 1));
+
+            // Add merged student
+            students.push(mergedStudent);
+
+            // Save and refresh
+            saveData();
+            selectedForMerge = [];
+            renderStudentsTable();
+            populatePaymentStudentSelect();
+            populateDocumentStudentSelect();
+            updateDashboard();
+            closeModal('mergeStudentModal');
+
+            alert(`Students merged successfully!\n\nMerged student: ${mergedStudent.name}\nTotal Paid: $${mergedStudent.totalPaid.toFixed(2)}\nBalance: $${mergedStudent.balance.toFixed(2)}`);
+        }
+
+        // Find potential duplicate students
+        function findDuplicates() {
+            const duplicates = [];
+
+            for (let i = 0; i < students.length; i++) {
+                for (let j = i + 1; j < students.length; j++) {
+                    const s1 = students[i];
+                    const s2 = students[j];
+                    const reasons = [];
+
+                    // Check for similar names (case-insensitive, trimmed)
+                    const name1 = (s1.name || '').toLowerCase().trim();
+                    const name2 = (s2.name || '').toLowerCase().trim();
+                    if (name1 && name2 && name1 === name2) {
+                        reasons.push('Same name');
+                    }
+
+                    // Check for same email
+                    const email1 = (s1.email || '').toLowerCase().trim();
+                    const email2 = (s2.email || '').toLowerCase().trim();
+                    if (email1 && email2 && email1 === email2) {
+                        reasons.push('Same email');
+                    }
+
+                    // Check for same contact number
+                    const contact1 = (s1.contact || '').replace(/\D/g, '');
+                    const contact2 = (s2.contact || '').replace(/\D/g, '');
+                    if (contact1 && contact2 && contact1 === contact2) {
+                        reasons.push('Same contact');
+                    }
+
+                    // Check for same national ID
+                    const nid1 = (s1.nationalId || '').toLowerCase().trim();
+                    const nid2 = (s2.nationalId || '').toLowerCase().trim();
+                    if (nid1 && nid2 && nid1 === nid2) {
+                        reasons.push('Same National ID');
+                    }
+
+                    if (reasons.length > 0) {
+                        duplicates.push({
+                            index1: i,
+                            index2: j,
+                            student1: s1,
+                            student2: s2,
+                            reasons: reasons
+                        });
+                    }
+                }
+            }
+
+            return duplicates;
+        }
+
+        // Find and show duplicates in modal
+        function findAndShowDuplicates() {
+            const duplicates = findDuplicates();
+
+            if (duplicates.length === 0) {
+                alert('No potential duplicates found! All student records appear to be unique.');
+                return;
+            }
+
+            let html = `<div style="max-height: 400px; overflow-y: auto;">`;
+
+            duplicates.forEach((dup, idx) => {
+                html += `
+                    <div style="background: var(--bg-secondary); padding: 1rem; border-radius: 0.5rem; margin-bottom: 1rem; border-left: 4px solid #FF9800;">
+                        <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 0.5rem;">
+                            <div>
+                                <strong style="color: #E65100;">Potential Duplicate #${idx + 1}</strong>
+                                <span style="background: #FFE0B2; color: #E65100; padding: 0.25rem 0.5rem; border-radius: 0.25rem; font-size: 0.8rem; margin-left: 0.5rem;">
+                                    ${dup.reasons.join(', ')}
+                                </span>
+                            </div>
+                            <button class="btn" onclick="selectDuplicatesForMerge(${dup.index1}, ${dup.index2})"
+                                    style="background: #9C27B0; color: white; padding: 0.25rem 0.75rem; font-size: 0.85rem;">
+                                Select for Merge
+                            </button>
+                        </div>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                            <div style="background: var(--bg-card); padding: 0.75rem; border-radius: 0.25rem;">
+                                <p><strong>${dup.student1.name}</strong></p>
+                                <p style="font-size: 0.85rem; color: var(--text-secondary);">ID: ${dup.student1.id}</p>
+                                <p style="font-size: 0.85rem; color: var(--text-secondary);">Skill: ${dup.student1.skillArea}</p>
+                                <p style="font-size: 0.85rem; color: var(--text-secondary);">Paid: $${dup.student1.totalPaid.toFixed(2)}</p>
+                            </div>
+                            <div style="background: var(--bg-card); padding: 0.75rem; border-radius: 0.25rem;">
+                                <p><strong>${dup.student2.name}</strong></p>
+                                <p style="font-size: 0.85rem; color: var(--text-secondary);">ID: ${dup.student2.id}</p>
+                                <p style="font-size: 0.85rem; color: var(--text-secondary);">Skill: ${dup.student2.skillArea}</p>
+                                <p style="font-size: 0.85rem; color: var(--text-secondary);">Paid: $${dup.student2.totalPaid.toFixed(2)}</p>
+                            </div>
+                        </div>
+                    </div>`;
+            });
+
+            html += `</div>
+                <p style="margin-top: 1rem; color: var(--text-secondary); font-size: 0.9rem;">
+                    Found ${duplicates.length} potential duplicate${duplicates.length > 1 ? 's' : ''}.
+                    Click "Select for Merge" to select a pair, then close this modal and click "Merge Selected Students".
+                </p>`;
+
+            document.getElementById('duplicatesListContent').innerHTML = html;
+            document.getElementById('duplicatesModal').style.display = 'flex';
+        }
+
+        // Select duplicates for merge from the duplicates modal
+        function selectDuplicatesForMerge(index1, index2) {
+            selectedForMerge = [index1, index2];
+            closeModal('duplicatesModal');
+            renderStudentsTable();
+
+            // Scroll to merge controls
+            document.getElementById('mergeControls').scrollIntoView({ behavior: 'smooth' });
+        }
+
+        // ==================== END MERGE STUDENTS FUNCTIONALITY ====================
 
         // View student details
         function viewStudent(index) {
