@@ -6830,13 +6830,16 @@
 
         // Close modal
         function closeModal(modalId) {
-            document.getElementById(modalId).classList.remove('active');
+            const modal = document.getElementById(modalId);
+            modal.classList.remove('active');
+            modal.style.display = 'none';
         }
 
         // Close modal when clicking outside
         window.onclick = function(event) {
             if (event.target.classList.contains('modal')) {
                 event.target.classList.remove('active');
+                event.target.style.display = 'none';
             }
         }
 
