@@ -1211,6 +1211,113 @@
             to { transform: rotate(360deg); }
         }
 
+        /* Cloud Auth Modal Styles */
+        .cloud-auth-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            justify-content: center;
+            align-items: center;
+            z-index: 10000;
+        }
+
+        .cloud-auth-modal.show,
+        .cloud-auth-modal[style*="display: flex"] {
+            display: flex;
+        }
+
+        /* Backup File Browser Styles */
+        .backup-file-item {
+            padding: 1rem;
+            border-bottom: 1px solid var(--border-color);
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        .backup-file-item:hover {
+            background-color: var(--bg-primary);
+        }
+
+        .backup-file-item:last-child {
+            border-bottom: none;
+        }
+
+        /* Selective Sync Option Styles */
+        .sync-option-item {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.75rem;
+            background: var(--bg-primary);
+            border: 1px solid var(--border-color);
+            border-radius: 0.5rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .sync-option-item:hover {
+            border-color: var(--primary-blue);
+            background: var(--bg-secondary);
+        }
+
+        .sync-option-item input[type="checkbox"] {
+            width: 20px;
+            height: 20px;
+            accent-color: var(--primary-blue);
+        }
+
+        .sync-option-label {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        /* Notification Toast Styles */
+        .notification-toast {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            padding: 1rem 1.5rem;
+            border-radius: 0.5rem;
+            color: white;
+            font-weight: 500;
+            z-index: 10001;
+            animation: slideIn 0.3s ease-out;
+            max-width: 400px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        }
+
+        .notification-toast.success {
+            background: #10b981;
+        }
+
+        .notification-toast.error {
+            background: #ef4444;
+        }
+
+        .notification-toast.warning {
+            background: #f59e0b;
+        }
+
+        .notification-toast.info {
+            background: #3b82f6;
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
         /* 2FA Settings Section */
         .twofa-settings-section {
             background: var(--bg-primary);
@@ -1397,6 +1504,10 @@
                                     <div class="cloud-dropdown-item" onclick="syncFromCloud()">
                                         <span>🔄</span>
                                         <span>Sync from Cloud</span>
+                                    </div>
+                                    <div class="cloud-dropdown-item" onclick="browseBackupFiles()">
+                                        <span>📁</span>
+                                        <span>Browse All Backups</span>
                                     </div>
                                     <div class="cloud-dropdown-divider"></div>
                                     <div class="last-sync-info" id="lastSyncInfo">
@@ -6644,6 +6755,9 @@
 
             // Initialize cloud sync
             initializeCloudSync();
+
+            // Prompt user to sync from cloud on login
+            promptSyncOnLogin();
         }
 
         // ============================================
@@ -6660,8 +6774,8 @@
             DOCUMENTS_FOLDER_ID: '1akzg0zD4y1auX2RR8Um4AgKgmWrPn9nJ',
             // File name for backup - unique to this dashboard
             BACKUP_FILE_NAME: 'school_fee_management_system.json',
-            // API scopes needed
-            SCOPES: 'https://www.googleapis.com/auth/drive.file'
+            // API scopes needed - using 'drive' scope to allow access to shared files from any account
+            SCOPES: 'https://www.googleapis.com/auth/drive'
         };
 
         // Cloud sync state
@@ -6961,7 +7075,8 @@
             // Try to find existing backup file
             await findExistingBackupFile();
 
-            alert('Connected to Google Drive successfully! You can now save and sync your data.');
+            // Show forced sync modal after successful connection
+            showForcedSyncAfterConnectModal();
         }
 
         function handleGoogleAuthError(error) {
@@ -7438,6 +7553,956 @@
             if (diffMins < 60) return `${diffMins} min${diffMins > 1 ? 's' : ''} ago`;
             if (diffHours < 24) return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`;
             return `${diffDays} day${diffDays > 1 ? 's' : ''} ago`;
+        }
+
+        // ============================================
+        // Notification Toast System
+        // ============================================
+
+        // Show notification toast
+        function showNotification(message, type = 'info') {
+            // Remove any existing notifications
+            const existing = document.querySelector('.notification-toast');
+            if (existing) existing.remove();
+
+            const toast = document.createElement('div');
+            toast.className = `notification-toast ${type}`;
+            toast.textContent = message;
+            document.body.appendChild(toast);
+
+            // Auto-remove after 4 seconds
+            setTimeout(() => {
+                toast.style.animation = 'slideIn 0.3s ease-out reverse';
+                setTimeout(() => toast.remove(), 300);
+            }, 4000);
+        }
+
+        // ============================================
+        // Login Sync Prompts
+        // ============================================
+
+        // Prompt user to sync from cloud on login
+        function promptSyncOnLogin() {
+            // Check if we have a valid Google Drive token
+            const savedToken = localStorage.getItem('cestisGoogleAccessToken');
+            const savedExpiry = localStorage.getItem('cestisGoogleTokenExpiry');
+
+            // Show prompt modal after a brief delay to let dashboard load
+            setTimeout(() => {
+                if (!savedToken || !savedExpiry) {
+                    // Not connected to Google Drive - prompt to connect
+                    showConnectCloudOnLoginModal();
+                    return;
+                }
+
+                // Check if token is still valid
+                const expiry = new Date(savedExpiry);
+                if (expiry <= new Date()) {
+                    // Token expired - prompt to reconnect
+                    showConnectCloudOnLoginModal();
+                    return;
+                }
+
+                // Connected with valid token - show sync prompt
+                showSyncOnLoginModal();
+            }, 500);
+        }
+
+        // Show connect to cloud modal on login
+        function showConnectCloudOnLoginModal() {
+            const existingModal = document.getElementById('connectCloudOnLoginModal');
+            if (existingModal) {
+                existingModal.remove();
+            }
+
+            const modalHTML = `
+                <div id="connectCloudOnLoginModal" class="cloud-auth-modal" style="display: flex;">
+                    <div class="modal-content" style="max-width: 450px;">
+                        <div class="modal-header">
+                            <h2>Connect to Cloud Storage?</h2>
+                            <button class="close-btn" onclick="closeConnectCloudOnLoginModal(false)">&times;</button>
+                        </div>
+                        <div style="padding: 1.25rem;">
+                            <div style="text-align: center; margin-bottom: 1.25rem;">
+                                <span style="font-size: 3rem;">☁️</span>
+                            </div>
+
+                            <p style="text-align: center; color: var(--text-secondary); margin-bottom: 1.25rem;">
+                                Connect to Google Drive to sync your dashboard data across devices and with other users.
+                            </p>
+
+                            <div style="background: #e0f2fe; border: 1px solid #0ea5e9; border-radius: 0.5rem; padding: 0.75rem; margin-bottom: 1.25rem;">
+                                <strong style="color: #0369a1;">Benefits:</strong>
+                                <ul style="color: var(--text-secondary); font-size: 0.9rem; margin: 0.5rem 0 0 1rem; padding: 0;">
+                                    <li>Backup your data securely</li>
+                                    <li>Sync across multiple devices</li>
+                                    <li>Share data with other users</li>
+                                </ul>
+                            </div>
+
+                            <div style="display: flex; gap: 0.75rem;">
+                                <button class="btn btn-secondary" onclick="closeConnectCloudOnLoginModal(false)" style="flex: 1;">
+                                    Skip
+                                </button>
+                                <button class="btn" onclick="closeConnectCloudOnLoginModal(true)" style="flex: 1;">
+                                    Connect Now
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            document.body.insertAdjacentHTML('beforeend', modalHTML);
+        }
+
+        // Close connect cloud on login modal
+        function closeConnectCloudOnLoginModal(shouldConnect) {
+            const modal = document.getElementById('connectCloudOnLoginModal');
+            if (modal) {
+                modal.remove();
+            }
+
+            if (shouldConnect) {
+                connectToGoogleDrive();
+            }
+        }
+
+        // Show sync on login modal
+        function showSyncOnLoginModal() {
+            const existingModal = document.getElementById('syncOnLoginModal');
+            if (existingModal) {
+                existingModal.remove();
+            }
+
+            const modalHTML = `
+                <div id="syncOnLoginModal" class="cloud-auth-modal" style="display: flex;">
+                    <div class="modal-content" style="max-width: 450px;">
+                        <div class="modal-header">
+                            <h2>Sync from Cloud?</h2>
+                            <button class="close-btn" onclick="closeSyncOnLoginModal(false)">&times;</button>
+                        </div>
+                        <div style="padding: 1.25rem;">
+                            <div style="text-align: center; margin-bottom: 1.25rem;">
+                                <span style="font-size: 3rem;">🔄</span>
+                            </div>
+
+                            <p style="text-align: center; color: var(--text-secondary); margin-bottom: 1.25rem;">
+                                Your Google Drive is connected. Would you like to sync the latest data from the cloud?
+                            </p>
+
+                            <div style="background: #e0f2fe; border: 1px solid #0ea5e9; border-radius: 0.5rem; padding: 0.75rem; margin-bottom: 1.25rem;">
+                                <strong style="color: #0369a1;">Tip:</strong>
+                                <span style="color: var(--text-secondary); font-size: 0.9rem;">
+                                    Syncing ensures you have the latest data saved by other users.
+                                </span>
+                            </div>
+
+                            <div style="display: flex; gap: 0.75rem;">
+                                <button class="btn btn-secondary" onclick="closeSyncOnLoginModal(false)" style="flex: 1;">
+                                    Skip
+                                </button>
+                                <button class="btn" onclick="closeSyncOnLoginModal(true)" style="flex: 1;">
+                                    Sync Now
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            document.body.insertAdjacentHTML('beforeend', modalHTML);
+        }
+
+        // Close sync on login modal
+        async function closeSyncOnLoginModal(shouldSync) {
+            const modal = document.getElementById('syncOnLoginModal');
+            if (modal) {
+                modal.remove();
+            }
+
+            if (shouldSync) {
+                await performAutoSyncOnLogin();
+            }
+        }
+
+        // Perform automatic sync on login
+        async function performAutoSyncOnLogin() {
+            // Initialize token if not already done
+            const savedToken = localStorage.getItem('cestisGoogleAccessToken');
+            if (savedToken) {
+                googleAccessToken = savedToken;
+                isCloudConnected = true;
+            }
+
+            if (!isCloudConnected || !googleAccessToken) {
+                showNotification('Could not connect to Google Drive', 'error');
+                return;
+            }
+
+            setCloudSyncing(true);
+            updateCloudUI(true);
+
+            try {
+                // First try to find the backup file
+                if (!cloudFileId) {
+                    const savedFileId = localStorage.getItem('schoolFeeCloudFileId');
+                    if (savedFileId) {
+                        cloudFileId = savedFileId;
+                    } else {
+                        await findExistingBackupFile();
+                    }
+                }
+
+                if (!cloudFileId) {
+                    setCloudSyncing(false);
+                    showNotification('No backup file found in cloud', 'warning');
+                    return;
+                }
+
+                // Download the file
+                const response = await fetch(
+                    `https://www.googleapis.com/drive/v3/files/${cloudFileId}?alt=media`,
+                    {
+                        headers: {
+                            'Authorization': `Bearer ${googleAccessToken}`
+                        }
+                    }
+                );
+
+                if (!response.ok) {
+                    throw new Error('Failed to download backup');
+                }
+
+                const backupData = await response.json();
+
+                // Validate backup format
+                if (!backupData.data || !backupData.version) {
+                    throw new Error('Invalid backup file format');
+                }
+
+                // Restore all data
+                if (backupData.data.users) {
+                    users = backupData.data.users;
+                    saveUsers();
+                }
+
+                if (backupData.data.students) {
+                    students = backupData.data.students;
+                    localStorage.setItem('cestiSchoolFeeStudents', JSON.stringify(students));
+                }
+
+                if (backupData.data.payments) {
+                    payments = backupData.data.payments;
+                    localStorage.setItem('cestiSchoolFeePayments', JSON.stringify(payments));
+                }
+
+                if (backupData.data.documents) {
+                    documents = backupData.data.documents;
+                    localStorage.setItem('cestiSchoolFeeDocuments', JSON.stringify(documents));
+                }
+
+                if (backupData.data.feeStructure) {
+                    feeStructure = backupData.data.feeStructure;
+                    saveFeeStructure();
+                }
+
+                // Update sync tracking
+                lastSyncTime = new Date();
+                localStorage.setItem('cestisLastSyncTime', lastSyncTime.toISOString());
+                updateLastSyncDisplay();
+
+                // Update last saved by info
+                lastSavedBy = backupData.savedBy || 'Unknown';
+                cloudFileTimestamp = backupData.timestamp;
+                updateLastSavedByDisplay();
+
+                // Refresh UI
+                renderFeeStructure();
+                renderStudentsTable();
+                renderPaymentsTable();
+                renderDocumentsTable();
+                renderUsersTable();
+                populatePaymentStudentSelect();
+                populateDocumentStudentSelect();
+                updateDashboard();
+
+                setCloudSyncing(false);
+
+                const savedByInfo = backupData.savedBy ? ` (saved by ${backupData.savedBy})` : '';
+                showNotification(`Synced from cloud${savedByInfo}`, 'success');
+
+            } catch (error) {
+                console.error('Error syncing on login:', error);
+                setCloudSyncing(false);
+
+                if (error.message.includes('invalid_token') || error.message.includes('Invalid Credentials')) {
+                    showNotification('Google Drive session expired', 'error');
+                    // Clear invalid token
+                    localStorage.removeItem('cestisGoogleAccessToken');
+                    localStorage.removeItem('cestisGoogleTokenExpiry');
+                    updateCloudUI(false);
+                } else {
+                    showNotification(`Sync failed: ${error.message}`, 'error');
+                }
+            }
+        }
+
+        // ============================================
+        // Forced Sync After Connection
+        // ============================================
+
+        // Show forced sync modal after successful Google Drive connection
+        function showForcedSyncAfterConnectModal() {
+            const existingModal = document.getElementById('forcedSyncModal');
+            if (existingModal) {
+                existingModal.remove();
+            }
+
+            // Check if there's an existing backup to sync from
+            const hasBackup = cloudFileId !== null;
+
+            const modalHTML = `
+                <div id="forcedSyncModal" class="cloud-auth-modal" style="display: flex;">
+                    <div class="modal-content" style="max-width: 450px;">
+                        <div class="modal-header">
+                            <h2>Connected to Google Drive!</h2>
+                        </div>
+                        <div style="padding: 1.25rem;">
+                            <div style="text-align: center; margin-bottom: 1.25rem;">
+                                <span style="font-size: 3rem;">🔄</span>
+                            </div>
+
+                            ${hasBackup ? `
+                                <p style="text-align: center; color: var(--text-secondary); margin-bottom: 1.25rem;">
+                                    A cloud backup was found. You must sync your data before continuing to ensure you have the latest information.
+                                </p>
+
+                                <div style="background: #fef3c7; border: 1px solid #f59e0b; border-radius: 0.5rem; padding: 0.75rem; margin-bottom: 1.25rem;">
+                                    <strong style="color: #d97706;">Important:</strong>
+                                    <span style="color: var(--text-secondary); font-size: 0.9rem;">
+                                        This will replace your local data with the cloud backup.
+                                    </span>
+                                </div>
+
+                                <button class="btn" onclick="performForcedSyncAfterConnect()" style="width: 100%;">
+                                    Sync Now
+                                </button>
+                            ` : `
+                                <p style="text-align: center; color: var(--text-secondary); margin-bottom: 1.25rem;">
+                                    No existing backup was found in the cloud. Would you like to save your current data to the cloud now?
+                                </p>
+
+                                <div style="background: #e0f2fe; border: 1px solid #0ea5e9; border-radius: 0.5rem; padding: 0.75rem; margin-bottom: 1.25rem;">
+                                    <strong style="color: #0369a1;">Tip:</strong>
+                                    <span style="color: var(--text-secondary); font-size: 0.9rem;">
+                                        Saving now will create a backup that other users can sync from.
+                                    </span>
+                                </div>
+
+                                <div style="display: flex; gap: 0.75rem;">
+                                    <button class="btn btn-secondary" onclick="closeForcedSyncModal(false)" style="flex: 1;">
+                                        Skip for Now
+                                    </button>
+                                    <button class="btn" onclick="performForcedSaveAfterConnect()" style="flex: 1;">
+                                        Save to Cloud
+                                    </button>
+                                </div>
+                            `}
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            document.body.insertAdjacentHTML('beforeend', modalHTML);
+        }
+
+        // Perform forced sync after connection
+        async function performForcedSyncAfterConnect() {
+            const modal = document.getElementById('forcedSyncModal');
+
+            // Update modal to show syncing status
+            if (modal) {
+                const content = modal.querySelector('.modal-content > div:last-child');
+                content.innerHTML = `
+                    <div style="text-align: center; padding: 1.25rem;">
+                        <div class="spinning" style="font-size: 3rem; margin-bottom: 1rem;">🔄</div>
+                        <p style="color: var(--text-secondary);">Syncing data from cloud...</p>
+                    </div>
+                `;
+            }
+
+            setCloudSyncing(true);
+
+            try {
+                // Download the file
+                const response = await fetch(
+                    `https://www.googleapis.com/drive/v3/files/${cloudFileId}?alt=media`,
+                    {
+                        headers: {
+                            'Authorization': `Bearer ${googleAccessToken}`
+                        }
+                    }
+                );
+
+                if (!response.ok) {
+                    throw new Error('Failed to download backup');
+                }
+
+                const backupData = await response.json();
+
+                // Validate backup format
+                if (!backupData.data || !backupData.version) {
+                    throw new Error('Invalid backup file format');
+                }
+
+                // Restore data
+                if (backupData.data.users) {
+                    users = backupData.data.users;
+                    saveUsers();
+                }
+
+                if (backupData.data.students) {
+                    students = backupData.data.students;
+                    localStorage.setItem('cestiSchoolFeeStudents', JSON.stringify(students));
+                }
+
+                if (backupData.data.payments) {
+                    payments = backupData.data.payments;
+                    localStorage.setItem('cestiSchoolFeePayments', JSON.stringify(payments));
+                }
+
+                if (backupData.data.documents) {
+                    documents = backupData.data.documents;
+                    localStorage.setItem('cestiSchoolFeeDocuments', JSON.stringify(documents));
+                }
+
+                if (backupData.data.feeStructure) {
+                    feeStructure = backupData.data.feeStructure;
+                    saveFeeStructure();
+                }
+
+                // Update sync tracking
+                lastSyncTime = new Date();
+                localStorage.setItem('cestisLastSyncTime', lastSyncTime.toISOString());
+                updateLastSyncDisplay();
+
+                // Update last saved by info
+                lastSavedBy = backupData.savedBy || 'Unknown';
+                cloudFileTimestamp = backupData.timestamp;
+                updateLastSavedByDisplay();
+
+                // Refresh UI
+                renderFeeStructure();
+                renderStudentsTable();
+                renderPaymentsTable();
+                renderDocumentsTable();
+                renderUsersTable();
+                populatePaymentStudentSelect();
+                populateDocumentStudentSelect();
+                updateDashboard();
+
+                setCloudSyncing(false);
+                closeForcedSyncModal(true);
+
+                const savedByInfo = backupData.savedBy ? ` (saved by ${backupData.savedBy})` : '';
+                showNotification(`Connected and synced from cloud${savedByInfo}`, 'success');
+
+            } catch (error) {
+                console.error('Error during forced sync:', error);
+                setCloudSyncing(false);
+
+                // Update modal to show error with retry option
+                if (modal) {
+                    const content = modal.querySelector('.modal-content > div:last-child');
+                    content.innerHTML = `
+                        <div style="text-align: center; margin-bottom: 1.25rem;">
+                            <span style="font-size: 3rem;">❌</span>
+                        </div>
+                        <p style="text-align: center; color: #ef4444; margin-bottom: 1.25rem;">
+                            Sync failed: ${error.message}
+                        </p>
+                        <div style="display: flex; gap: 0.75rem;">
+                            <button class="btn btn-secondary" onclick="closeForcedSyncModal(false)" style="flex: 1;">
+                                Continue Anyway
+                            </button>
+                            <button class="btn" onclick="performForcedSyncAfterConnect()" style="flex: 1;">
+                                Retry
+                            </button>
+                        </div>
+                    `;
+                }
+            }
+        }
+
+        // Perform save to cloud after connection (when no backup exists)
+        async function performForcedSaveAfterConnect() {
+            const modal = document.getElementById('forcedSyncModal');
+
+            // Update modal to show saving status
+            if (modal) {
+                const content = modal.querySelector('.modal-content > div:last-child');
+                content.innerHTML = `
+                    <div style="text-align: center; padding: 1.25rem;">
+                        <div class="spinning" style="font-size: 3rem; margin-bottom: 1rem;">💾</div>
+                        <p style="color: var(--text-secondary);">Saving data to cloud...</p>
+                    </div>
+                `;
+            }
+
+            // Close modal and trigger save
+            closeForcedSyncModal(false);
+            await saveToCloud();
+        }
+
+        // Close forced sync modal
+        function closeForcedSyncModal(syncSuccessful) {
+            const modal = document.getElementById('forcedSyncModal');
+            if (modal) {
+                modal.remove();
+            }
+        }
+
+        // ============================================
+        // File Browser & Selective Sync Functionality
+        // ============================================
+
+        // Browse all backup files in the shared folder
+        async function browseBackupFiles() {
+            if (!isCloudConnected || !googleAccessToken) {
+                alert('Please connect to Google Drive first');
+                return;
+            }
+
+            const menu = document.getElementById('cloudDropdownMenu');
+            menu.classList.remove('show');
+
+            setCloudSyncing(true);
+
+            try {
+                const files = await listBackupFilesInFolder();
+                setCloudSyncing(false);
+
+                if (files.length === 0) {
+                    alert('No backup files found in the shared folder.\n\nMake sure the folder is shared with your account and contains JSON backup files.');
+                    return;
+                }
+
+                showFileBrowserModal(files);
+            } catch (error) {
+                console.error('Error browsing backup files:', error);
+                setCloudSyncing(false);
+
+                if (error.message.includes('invalid_token') || error.message.includes('Invalid Credentials')) {
+                    alert('Your session has expired. Please reconnect to Google Drive.');
+                    disconnectFromGoogleDrive();
+                } else {
+                    alert(`Failed to browse files: ${error.message}`);
+                }
+            }
+        }
+
+        // List all JSON backup files in the shared folder
+        async function listBackupFilesInFolder() {
+            // Search for all JSON files in the shared folder
+            const query = `'${GOOGLE_DRIVE_CONFIG.FOLDER_ID}' in parents and mimeType='application/json' and trashed=false`;
+
+            const response = await fetch(
+                `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(query)}&fields=files(id,name,modifiedTime,size,owners,sharingUser)&orderBy=modifiedTime desc`,
+                {
+                    headers: {
+                        'Authorization': `Bearer ${googleAccessToken}`
+                    }
+                }
+            );
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error?.message || 'Failed to list files');
+            }
+
+            const data = await response.json();
+
+            // For each file, try to get additional metadata (savedBy info)
+            const filesWithMetadata = await Promise.all(
+                data.files.map(async (file) => {
+                    try {
+                        const contentResponse = await fetch(
+                            `https://www.googleapis.com/drive/v3/files/${file.id}?alt=media`,
+                            {
+                                headers: {
+                                    'Authorization': `Bearer ${googleAccessToken}`
+                                }
+                            }
+                        );
+
+                        if (contentResponse.ok) {
+                            const content = await contentResponse.json();
+                            return {
+                                ...file,
+                                savedBy: content.savedBy || 'Unknown',
+                                backupTimestamp: content.timestamp,
+                                hasValidFormat: content.version && content.data
+                            };
+                        }
+                    } catch (e) {
+                        console.warn('Could not read metadata for file:', file.name);
+                    }
+
+                    return {
+                        ...file,
+                        savedBy: 'Unknown',
+                        backupTimestamp: file.modifiedTime,
+                        hasValidFormat: false
+                    };
+                })
+            );
+
+            return filesWithMetadata;
+        }
+
+        // Show file browser modal
+        function showFileBrowserModal(files) {
+            const existingModal = document.getElementById('fileBrowserModal');
+            if (existingModal) {
+                existingModal.remove();
+            }
+
+            const fileListHTML = files.map(file => {
+                const modifiedDate = new Date(file.modifiedTime);
+                const timeAgo = getTimeAgo(modifiedDate);
+                const dateFormatted = modifiedDate.toLocaleDateString() + ' ' + modifiedDate.toLocaleTimeString();
+                const validBadge = file.hasValidFormat
+                    ? '<span style="background: #10b981; color: white; padding: 2px 6px; border-radius: 4px; font-size: 0.7rem; margin-left: 8px;">Valid</span>'
+                    : '<span style="background: #f59e0b; color: white; padding: 2px 6px; border-radius: 4px; font-size: 0.7rem; margin-left: 8px;">Unknown Format</span>';
+
+                return `
+                    <div class="backup-file-item" onclick="selectBackupFile('${file.id}', '${file.name.replace(/'/g, "\\'")}')">
+                        <div style="display: flex; align-items: center; gap: 12px;">
+                            <span style="font-size: 1.5rem;">📄</span>
+                            <div style="flex: 1;">
+                                <div style="font-weight: 600; color: var(--text-primary);">
+                                    ${file.name}${validBadge}
+                                </div>
+                                <div style="font-size: 0.85rem; color: var(--text-secondary); margin-top: 4px;">
+                                    <span>📅 ${dateFormatted}</span>
+                                    <span style="margin-left: 16px;">👤 Saved by: ${file.savedBy}</span>
+                                </div>
+                                <div style="font-size: 0.8rem; color: #6b7280; margin-top: 2px;">
+                                    Modified ${timeAgo}
+                                </div>
+                            </div>
+                            <span style="color: var(--primary-blue); font-size: 1.2rem;">→</span>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            const modalHTML = `
+                <div id="fileBrowserModal" class="cloud-auth-modal" style="display: flex;">
+                    <div class="modal-content" style="max-width: 700px; max-height: 80vh;">
+                        <div class="modal-header">
+                            <h2>Browse Backup Files</h2>
+                            <button class="close-btn" onclick="closeFileBrowserModal()">&times;</button>
+                        </div>
+                        <div style="padding: 1rem;">
+                            <p style="margin-bottom: 1rem; color: var(--text-secondary);">
+                                Select a backup file to sync from. Files are sorted by most recent first.
+                            </p>
+                            <div style="background: #e0f2fe; border: 1px solid #0ea5e9; border-radius: 0.5rem; padding: 0.75rem; margin-bottom: 1rem;">
+                                <strong style="color: #0369a1;">Tip:</strong>
+                                <span style="color: var(--text-secondary); font-size: 0.9rem;">
+                                    Files shared with your account from other users will appear here. You can sync data from any shared backup.
+                                </span>
+                            </div>
+                            <div style="max-height: 400px; overflow-y: auto; border: 1px solid var(--border-color); border-radius: 0.5rem;">
+                                ${fileListHTML}
+                            </div>
+                            <div style="margin-top: 1rem; text-align: center; color: #6b7280; font-size: 0.85rem;">
+                                Found ${files.length} backup file${files.length !== 1 ? 's' : ''} in shared folder
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            document.body.insertAdjacentHTML('beforeend', modalHTML);
+        }
+
+        // Close file browser modal
+        function closeFileBrowserModal() {
+            const modal = document.getElementById('fileBrowserModal');
+            if (modal) {
+                modal.remove();
+            }
+        }
+
+        // Select a backup file and show selective sync options
+        async function selectBackupFile(fileId, fileName) {
+            closeFileBrowserModal();
+            setCloudSyncing(true);
+
+            try {
+                // Download the file content
+                const response = await fetch(
+                    `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`,
+                    {
+                        headers: {
+                            'Authorization': `Bearer ${googleAccessToken}`
+                        }
+                    }
+                );
+
+                if (!response.ok) {
+                    throw new Error('Failed to download backup file');
+                }
+
+                const backupData = await response.json();
+                setCloudSyncing(false);
+
+                // Validate backup format
+                if (!backupData.data || !backupData.version) {
+                    alert('Invalid backup file format. This file does not contain valid dashboard backup data.');
+                    return;
+                }
+
+                // Show selective sync modal
+                showSelectiveSyncModal(backupData, fileId, fileName);
+
+            } catch (error) {
+                console.error('Error loading backup file:', error);
+                setCloudSyncing(false);
+                alert(`Failed to load backup file: ${error.message}`);
+            }
+        }
+
+        // Show selective sync modal
+        function showSelectiveSyncModal(backupData, fileId, fileName) {
+            const existingModal = document.getElementById('selectiveSyncModal');
+            if (existingModal) {
+                existingModal.remove();
+            }
+
+            const backupTime = new Date(backupData.timestamp).toLocaleString();
+            const savedBy = backupData.savedBy || 'Unknown';
+
+            // Count items in each category
+            const userCount = backupData.data.users ? backupData.data.users.length : 0;
+            const studentCount = backupData.data.students ? backupData.data.students.length : 0;
+            const paymentCount = backupData.data.payments ? backupData.data.payments.length : 0;
+            const documentCount = backupData.data.documents ? backupData.data.documents.length : 0;
+            const hasFeeStructure = backupData.data.feeStructure ? true : false;
+
+            const modalHTML = `
+                <div id="selectiveSyncModal" class="cloud-auth-modal" style="display: flex;">
+                    <div class="modal-content" style="max-width: 550px;">
+                        <div class="modal-header">
+                            <h2>Selective Sync</h2>
+                            <button class="close-btn" onclick="closeSelectiveSyncModal()">&times;</button>
+                        </div>
+                        <div style="padding: 1.25rem;">
+                            <div style="background: var(--bg-primary); border-radius: 0.5rem; padding: 1rem; margin-bottom: 1.25rem;">
+                                <div style="font-weight: 600; color: var(--text-primary); margin-bottom: 0.5rem;">
+                                    📄 ${fileName}
+                                </div>
+                                <div style="font-size: 0.9rem; color: var(--text-secondary);">
+                                    <span>📅 ${backupTime}</span>
+                                    <span style="margin-left: 16px;">👤 Saved by: ${savedBy}</span>
+                                </div>
+                            </div>
+
+                            <p style="margin-bottom: 1rem; color: var(--text-secondary);">
+                                Choose which data you want to sync from this backup:
+                            </p>
+
+                            <div style="display: flex; flex-direction: column; gap: 0.75rem;">
+                                <label class="sync-option-item" style="${userCount === 0 ? 'opacity: 0.5;' : ''}">
+                                    <input type="checkbox" id="syncUsers" ${userCount > 0 ? 'checked' : 'disabled'}>
+                                    <span class="sync-option-label">
+                                        <span style="font-size: 1.2rem;">👥</span>
+                                        <span>
+                                            <strong>Users</strong>
+                                            <span style="color: #6b7280; font-size: 0.85rem; margin-left: 8px;">(${userCount} user${userCount !== 1 ? 's' : ''})</span>
+                                        </span>
+                                    </span>
+                                </label>
+
+                                <label class="sync-option-item" style="${studentCount === 0 ? 'opacity: 0.5;' : ''}">
+                                    <input type="checkbox" id="syncStudents" ${studentCount > 0 ? 'checked' : 'disabled'}>
+                                    <span class="sync-option-label">
+                                        <span style="font-size: 1.2rem;">🎓</span>
+                                        <span>
+                                            <strong>Students</strong>
+                                            <span style="color: #6b7280; font-size: 0.85rem; margin-left: 8px;">(${studentCount} student${studentCount !== 1 ? 's' : ''})</span>
+                                        </span>
+                                    </span>
+                                </label>
+
+                                <label class="sync-option-item" style="${paymentCount === 0 ? 'opacity: 0.5;' : ''}">
+                                    <input type="checkbox" id="syncPayments" ${paymentCount > 0 ? 'checked' : 'disabled'}>
+                                    <span class="sync-option-label">
+                                        <span style="font-size: 1.2rem;">💳</span>
+                                        <span>
+                                            <strong>Payments</strong>
+                                            <span style="color: #6b7280; font-size: 0.85rem; margin-left: 8px;">(${paymentCount} payment${paymentCount !== 1 ? 's' : ''})</span>
+                                        </span>
+                                    </span>
+                                </label>
+
+                                <label class="sync-option-item" style="${documentCount === 0 ? 'opacity: 0.5;' : ''}">
+                                    <input type="checkbox" id="syncDocuments" ${documentCount > 0 ? 'checked' : 'disabled'}>
+                                    <span class="sync-option-label">
+                                        <span style="font-size: 1.2rem;">📁</span>
+                                        <span>
+                                            <strong>Documents</strong>
+                                            <span style="color: #6b7280; font-size: 0.85rem; margin-left: 8px;">(${documentCount} document${documentCount !== 1 ? 's' : ''})</span>
+                                        </span>
+                                    </span>
+                                </label>
+
+                                <label class="sync-option-item" style="${!hasFeeStructure ? 'opacity: 0.5;' : ''}">
+                                    <input type="checkbox" id="syncFeeStructure" ${hasFeeStructure ? 'checked' : 'disabled'}>
+                                    <span class="sync-option-label">
+                                        <span style="font-size: 1.2rem;">💰</span>
+                                        <span>
+                                            <strong>Fee Structure</strong>
+                                            <span style="color: #6b7280; font-size: 0.85rem; margin-left: 8px;">(tuition fees by skill area)</span>
+                                        </span>
+                                    </span>
+                                </label>
+                            </div>
+
+                            <div style="background: #fef3c7; border: 1px solid #f59e0b; border-radius: 0.5rem; padding: 0.75rem; margin-top: 1.25rem; margin-bottom: 1rem;">
+                                <strong style="color: #d97706;">Warning:</strong>
+                                <span style="color: var(--text-secondary); font-size: 0.9rem;">
+                                    Selected data will <strong>replace</strong> your current local data.
+                                </span>
+                            </div>
+
+                            <div style="display: flex; gap: 0.75rem;">
+                                <button class="btn btn-secondary" onclick="closeSelectiveSyncModal()" style="flex: 1;">
+                                    Cancel
+                                </button>
+                                <button class="btn" style="flex: 1; background: #10b981;" onclick="performSelectiveSync('${fileId}')">
+                                    Sync Selected Data
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            // Store backup data for later use
+            window.pendingBackupData = backupData;
+
+            document.body.insertAdjacentHTML('beforeend', modalHTML);
+        }
+
+        // Close selective sync modal
+        function closeSelectiveSyncModal() {
+            const modal = document.getElementById('selectiveSyncModal');
+            if (modal) {
+                modal.remove();
+            }
+            window.pendingBackupData = null;
+        }
+
+        // Perform selective sync based on user selections
+        async function performSelectiveSync(fileId) {
+            const backupData = window.pendingBackupData;
+            if (!backupData) {
+                alert('Backup data not found. Please try again.');
+                closeSelectiveSyncModal();
+                return;
+            }
+
+            const syncUsers = document.getElementById('syncUsers').checked;
+            const syncStudents = document.getElementById('syncStudents').checked;
+            const syncPayments = document.getElementById('syncPayments').checked;
+            const syncDocuments = document.getElementById('syncDocuments').checked;
+            const syncFeeStructure = document.getElementById('syncFeeStructure').checked;
+
+            if (!syncUsers && !syncStudents && !syncPayments && !syncDocuments && !syncFeeStructure) {
+                alert('Please select at least one data type to sync.');
+                return;
+            }
+
+            // Build confirmation message
+            let selectedItems = [];
+            if (syncUsers) selectedItems.push('Users');
+            if (syncStudents) selectedItems.push('Students');
+            if (syncPayments) selectedItems.push('Payments');
+            if (syncDocuments) selectedItems.push('Documents');
+            if (syncFeeStructure) selectedItems.push('Fee Structure');
+
+            if (!confirm(`You are about to sync the following data:\n\n• ${selectedItems.join('\n• ')}\n\nThis will replace your current local data. Continue?`)) {
+                return;
+            }
+
+            closeSelectiveSyncModal();
+            setCloudSyncing(true);
+
+            try {
+                // Perform selective restore
+                if (syncUsers && backupData.data.users) {
+                    users = backupData.data.users;
+                    saveUsers();
+                }
+
+                if (syncStudents && backupData.data.students) {
+                    students = backupData.data.students;
+                    localStorage.setItem('cestiSchoolFeeStudents', JSON.stringify(students));
+                }
+
+                if (syncPayments && backupData.data.payments) {
+                    payments = backupData.data.payments;
+                    localStorage.setItem('cestiSchoolFeePayments', JSON.stringify(payments));
+                }
+
+                if (syncDocuments && backupData.data.documents) {
+                    documents = backupData.data.documents;
+                    localStorage.setItem('cestiSchoolFeeDocuments', JSON.stringify(documents));
+                }
+
+                if (syncFeeStructure && backupData.data.feeStructure) {
+                    feeStructure = backupData.data.feeStructure;
+                    saveFeeStructure();
+                }
+
+                // Update sync tracking
+                lastSyncTime = new Date();
+                localStorage.setItem('cestisLastSyncTime', lastSyncTime.toISOString());
+                updateLastSyncDisplay();
+
+                // Update last saved by info
+                lastSavedBy = backupData.savedBy || 'Unknown';
+                cloudFileTimestamp = backupData.timestamp;
+                updateLastSavedByDisplay();
+
+                // Cache the file ID if this becomes our primary sync file
+                cloudFileId = fileId;
+                localStorage.setItem('schoolFeeCloudFileId', cloudFileId);
+
+                // Refresh UI
+                renderFeeStructure();
+                renderStudentsTable();
+                renderPaymentsTable();
+                renderDocumentsTable();
+                renderUsersTable();
+                populatePaymentStudentSelect();
+                populateDocumentStudentSelect();
+                updateDashboard();
+
+                setCloudSyncing(false);
+
+                const syncedItems = selectedItems.join(', ');
+                alert(`Selective sync completed!\n\nSynced: ${syncedItems}\n\nFrom backup saved by: ${lastSavedBy}`);
+
+            } catch (error) {
+                console.error('Error performing selective sync:', error);
+                setCloudSyncing(false);
+                alert(`Failed to sync data: ${error.message}`);
+            }
         }
     </script>
 </body>
