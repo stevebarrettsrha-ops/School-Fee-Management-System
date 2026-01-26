@@ -7674,8 +7674,8 @@
         // SMART MERGE TO CLOUD FUNCTIONALITY
         // ============================================
 
-        // Track merge state
-        let cloudDataForMerge = null;
+        // Track merge to cloud state
+        let mergeToCloudData = null;
         let mergeToCloudAnalysis = null;
 
         // Main function to initiate merge to cloud
@@ -7741,7 +7741,7 @@
                     cloudData = { data: { users: [], students: [], payments: [], documents: [], feeStructure: [] }, version: '1.0' };
                 }
 
-                cloudDataForMerge = cloudData;
+                mergeToCloudData = cloudData;
                 mergeToCloudAnalysis = analyzeDataForMergeToCloud(cloudData);
                 console.log('Merge analysis:', mergeToCloudAnalysis);
                 displayMergeToCloudAnalysis(mergeToCloudAnalysis, cloudData);
@@ -8319,7 +8319,7 @@
                 }
             }
 
-            cloudDataForMerge = null;
+            mergeToCloudData = null;
             mergeToCloudAnalysis = null;
         }
 
@@ -8690,7 +8690,7 @@
         // Close merge to cloud modal
         function closeMergeToCloudModal() {
             document.getElementById('mergeToCloudModal').style.display = 'none';
-            cloudDataForMerge = null;
+            mergeToCloudData = null;
             mergeToCloudAnalysis = null;
         }
 
