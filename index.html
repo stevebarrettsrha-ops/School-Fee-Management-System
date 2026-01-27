@@ -10624,7 +10624,7 @@
                 if (!backup.version || !backup.data) throw new Error('Invalid backup format');
                 if (backup.data.users) {
                     users = backup.data.users;
-                    localStorage.setItem('dashboardUsers', JSON.stringify(users));
+                    localStorage.setItem('cestiUsers', JSON.stringify(users));
                 }
                 if (backup.data.quickLinks) {
                     quickLinks = backup.data.quickLinks;
