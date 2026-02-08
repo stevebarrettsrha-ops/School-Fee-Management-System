@@ -3774,7 +3774,6 @@
             populateDocumentStudentSelect();
             updateDocumentTypeFilter();
             updateSkillAreaOptions();
-            initializeCharts();
             setupDragAndDrop();
             initializeReportFilters();
 
@@ -3890,6 +3889,25 @@
             localStorage.setItem('cestiSchoolFeeDocuments', JSON.stringify(documents));
         }
 
+        // Recalculate student totals from actual payment records
+        function recalculateStudentTotals() {
+            students.forEach(student => {
+                const studentPayments = payments.filter(p => p.studentId === student.id);
+                const totalPaid = studentPayments.reduce((sum, p) => sum + (parseFloat(p.amount) || 0), 0);
+                student.tuitionFee = parseFloat(student.tuitionFee) || 0;
+                student.totalPaid = totalPaid;
+                student.balance = student.tuitionFee - student.totalPaid;
+
+                if (student.balance <= 0) {
+                    student.status = 'Fully Paid';
+                } else if (student.totalPaid > 0) {
+                    student.status = 'Partial Payment';
+                } else {
+                    student.status = 'Outstanding';
+                }
+            });
+        }
+
         // Switch between modules
         function switchModule(moduleId) {
             // Check if trying to access user management
@@ -3906,7 +3924,6 @@
             
             if (moduleId === 'dashboard') {
                 updateDashboard();
-                initializeCharts();
             } else if (moduleId === 'reports') {
                 updateReportsStats();
             } else if (moduleId === 'userManagement') {
@@ -5607,19 +5624,22 @@
 
         // Update dashboard
         function updateDashboard() {
+            // Recalculate student totals from actual payment records
+            recalculateStudentTotals();
+
             const totalStudents = students.length;
-            const totalExpected = students.reduce((sum, s) => sum + s.tuitionFee, 0);
-            const totalCollected = students.reduce((sum, s) => sum + s.totalPaid, 0);
+            const totalExpected = students.reduce((sum, s) => sum + (parseFloat(s.tuitionFee) || 0), 0);
+            const totalCollected = payments.reduce((sum, p) => sum + (parseFloat(p.amount) || 0), 0);
             const totalOutstanding = totalExpected - totalCollected;
-            
+
             document.getElementById('totalStudents').textContent = totalStudents;
             document.getElementById('totalExpected').textContent = '$' + totalExpected.toFixed(2);
             document.getElementById('totalCollected').textContent = '$' + totalCollected.toFixed(2);
             document.getElementById('totalOutstanding').textContent = '$' + totalOutstanding.toFixed(2);
-            
+
             const recentPayments = [...payments].sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, 5);
             const activityDiv = document.getElementById('recentActivity');
-            
+
             if (recentPayments.length > 0) {
                 activityDiv.innerHTML = recentPayments.map(p => `
                     <div class="payment-item">
@@ -5628,13 +5648,16 @@
                             <small>${p.date} - ${p.term}</small>
                         </div>
                         <div style="text-align: right;">
-                            <strong>$${p.amount.toFixed(2)}</strong>
+                            <strong>$${(parseFloat(p.amount) || 0).toFixed(2)}</strong>
                         </div>
                     </div>
                 `).join('');
             } else {
                 activityDiv.innerHTML = '<p>No recent payments</p>';
             }
+
+            // Refresh charts with current data
+            initializeCharts();
         }
 
         // Initialize Charts
@@ -5653,8 +5676,8 @@
                 const skillAreas = Object.keys(feeStructure);
                 const collectionData = skillAreas.map(area => {
                     const areaStudents = students.filter(s => s.skillArea === area);
-                    const expected = areaStudents.reduce((sum, s) => sum + s.tuitionFee, 0);
-                    const collected = areaStudents.reduce((sum, s) => sum + s.totalPaid, 0);
+                    const expected = areaStudents.reduce((sum, s) => sum + (parseFloat(s.tuitionFee) || 0), 0);
+                    const collected = areaStudents.reduce((sum, s) => sum + (parseFloat(s.totalPaid) || 0), 0);
                     return expected > 0 ? (collected / expected * 100).toFixed(1) : 0;
                 });
                 
@@ -5729,7 +5752,7 @@
                         return paymentDate.getMonth() === date.getMonth() && 
                                paymentDate.getFullYear() === date.getFullYear();
                     });
-                    const totalAmount = monthPayments.reduce((sum, p) => sum + p.amount, 0);
+                    const totalAmount = monthPayments.reduce((sum, p) => sum + (parseFloat(p.amount) || 0), 0);
                     
                     months.push(monthName);
                     amounts.push(totalAmount);
@@ -6947,7 +6970,8 @@
                         students = backup.students;
                         payments = backup.payments;
                         documents = backup.documents || [];
-                        
+
+                        recalculateStudentTotals();
                         saveData();
                         renderStudentsTable();
                         renderPaymentsTable();
@@ -6955,7 +6979,7 @@
                         populatePaymentStudentSelect();
                         populateDocumentStudentSelect();
                         updateDashboard();
-                        
+
                         alert('✅ Data restored successfully!');
                     } else {
                         alert('❌ Invalid backup file format');
@@ -8354,6 +8378,9 @@
                 payments = mergedPayments;
                 documents = mergedDocuments;
 
+                // Recalculate student totals from actual payments
+                recalculateStudentTotals();
+
                 updateMergeProgress('Saving locally...', 50);
                 saveUsers();
                 saveData();
@@ -8923,6 +8950,10 @@
                 localStorage.setItem('cestisLastSyncTime', lastSyncTime.toISOString());
                 updateLastSyncDisplay();
 
+                // Recalculate student totals from actual payments and persist
+                recalculateStudentTotals();
+                saveData();
+
                 // Refresh UI
                 renderFeeStructure();
                 renderStudentsTable();
@@ -9425,7 +9456,8 @@
                 });
             }
 
-            // Save all data
+            // Recalculate student totals from actual payments and save
+            recalculateStudentTotals();
             saveData();
 
             // Update last sync time
@@ -9870,6 +9902,10 @@
                 cloudFileTimestamp = backupData.timestamp;
                 updateLastSavedByDisplay();
 
+                // Recalculate student totals from actual payments and persist
+                recalculateStudentTotals();
+                saveData();
+
                 // Refresh UI
                 renderFeeStructure();
                 renderStudentsTable();
@@ -10044,6 +10080,10 @@
                 lastSavedBy = backupData.savedBy || 'Unknown';
                 cloudFileTimestamp = backupData.timestamp;
                 updateLastSavedByDisplay();
+
+                // Recalculate student totals from actual payments and persist
+                recalculateStudentTotals();
+                saveData();
 
                 // Refresh UI
                 renderFeeStructure();
@@ -10535,6 +10575,10 @@
                 // Cache the file ID if this becomes our primary sync file
                 cloudFileId = fileId;
                 localStorage.setItem('schoolFeeCloudFileId', cloudFileId);
+
+                // Recalculate student totals from actual payments and persist
+                recalculateStudentTotals();
+                saveData();
 
                 // Refresh UI
                 renderFeeStructure();
