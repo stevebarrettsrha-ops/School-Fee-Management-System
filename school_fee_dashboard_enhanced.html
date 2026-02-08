@@ -3323,21 +3323,26 @@
             }
         }
 
+        // Format number with commas and two decimal places
+        function formatCurrency(amount) {
+            return '$' + amount.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+        }
+
         // Update dashboard
         function updateDashboard() {
             const totalStudents = students.length;
             const totalExpected = students.reduce((sum, s) => sum + s.tuitionFee, 0);
             const totalCollected = students.reduce((sum, s) => sum + s.totalPaid, 0);
             const totalOutstanding = totalExpected - totalCollected;
-            
-            document.getElementById('totalStudents').textContent = totalStudents;
-            document.getElementById('totalExpected').textContent = '$' + totalExpected.toFixed(2);
-            document.getElementById('totalCollected').textContent = '$' + totalCollected.toFixed(2);
-            document.getElementById('totalOutstanding').textContent = '$' + totalOutstanding.toFixed(2);
-            
+
+            document.getElementById('totalStudents').textContent = totalStudents.toLocaleString();
+            document.getElementById('totalExpected').textContent = formatCurrency(totalExpected);
+            document.getElementById('totalCollected').textContent = formatCurrency(totalCollected);
+            document.getElementById('totalOutstanding').textContent = formatCurrency(totalOutstanding);
+
             const recentPayments = [...payments].sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, 5);
             const activityDiv = document.getElementById('recentActivity');
-            
+
             if (recentPayments.length > 0) {
                 activityDiv.innerHTML = recentPayments.map(p => `
                     <div class="payment-item">
@@ -3346,7 +3351,7 @@
                             <small>${p.date} - ${p.term}</small>
                         </div>
                         <div style="text-align: right;">
-                            <strong>$${p.amount.toFixed(2)}</strong>
+                            <strong>${formatCurrency(p.amount)}</strong>
                         </div>
                     </div>
                 `).join('');

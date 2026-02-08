@@ -5622,6 +5622,11 @@
             }
         }
 
+        // Format number with commas and two decimal places
+        function formatCurrency(amount) {
+            return '$' + amount.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+        }
+
         // Update dashboard
         function updateDashboard() {
             // Recalculate student totals from actual payment records
@@ -5632,10 +5637,10 @@
             const totalCollected = payments.reduce((sum, p) => sum + (parseFloat(p.amount) || 0), 0);
             const totalOutstanding = totalExpected - totalCollected;
 
-            document.getElementById('totalStudents').textContent = totalStudents;
-            document.getElementById('totalExpected').textContent = '$' + totalExpected.toFixed(2);
-            document.getElementById('totalCollected').textContent = '$' + totalCollected.toFixed(2);
-            document.getElementById('totalOutstanding').textContent = '$' + totalOutstanding.toFixed(2);
+            document.getElementById('totalStudents').textContent = totalStudents.toLocaleString();
+            document.getElementById('totalExpected').textContent = formatCurrency(totalExpected);
+            document.getElementById('totalCollected').textContent = formatCurrency(totalCollected);
+            document.getElementById('totalOutstanding').textContent = formatCurrency(totalOutstanding);
 
             const recentPayments = [...payments].sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, 5);
             const activityDiv = document.getElementById('recentActivity');
@@ -5648,7 +5653,7 @@
                             <small>${p.date} - ${p.term}</small>
                         </div>
                         <div style="text-align: right;">
-                            <strong>$${(parseFloat(p.amount) || 0).toFixed(2)}</strong>
+                            <strong>${formatCurrency(parseFloat(p.amount) || 0)}</strong>
                         </div>
                     </div>
                 `).join('');
