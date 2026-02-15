@@ -1485,6 +1485,91 @@
         .cloud-notify-actions .btn{font-size:.8rem;padding:.45rem .9rem}
         @keyframes notifyCountdown{from{width:100%}to{width:0%}}
         .cloud-notify-timer{height:3px;background:var(--text-muted);opacity:.3;border-radius:0 0 14px 14px}
+
+        /* Session Timeout Warning */
+        .session-timeout-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.6);
+            z-index: 10000;
+            justify-content: center;
+            align-items: center;
+        }
+        .session-timeout-overlay.show {
+            display: flex;
+        }
+        .session-timeout-box {
+            background: var(--bg-card);
+            border-radius: 14px;
+            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
+            width: 400px;
+            max-width: calc(100vw - 2rem);
+            overflow: hidden;
+            text-align: center;
+        }
+        .session-timeout-bar {
+            height: 4px;
+            width: 100%;
+            background: #e67e22;
+        }
+        .session-timeout-body {
+            padding: 2rem 1.5rem 1.5rem;
+        }
+        .session-timeout-icon {
+            font-size: 2.5rem;
+            margin-bottom: 0.75rem;
+        }
+        .session-timeout-title {
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: #e67e22;
+            margin-bottom: 0.5rem;
+        }
+        .session-timeout-msg {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            line-height: 1.5;
+            margin-bottom: 1rem;
+        }
+        .session-timeout-countdown {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--text-primary);
+            margin-bottom: 1.25rem;
+        }
+        .session-timeout-actions {
+            display: flex;
+            gap: 0.75rem;
+            justify-content: center;
+        }
+        .session-timeout-actions button {
+            padding: 0.5rem 1.25rem;
+            border-radius: 8px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            cursor: pointer;
+            border: none;
+            transition: background 0.2s;
+        }
+        .session-timeout-btn-stay {
+            background: var(--primary-blue);
+            color: #fff;
+        }
+        .session-timeout-btn-stay:hover {
+            background: var(--light-blue);
+        }
+        .session-timeout-btn-logout {
+            background: transparent;
+            border: 1px solid var(--border-color) !important;
+            color: var(--text-secondary);
+        }
+        .session-timeout-btn-logout:hover {
+            background: var(--bg-secondary);
+        }
     </style>
 </head>
 <body>
@@ -2846,6 +2931,26 @@
         </div>
     </div>
 
+    <!-- Session Timeout Warning Modal -->
+    <div id="sessionTimeoutOverlay" class="session-timeout-overlay">
+        <div class="session-timeout-box">
+            <div class="session-timeout-bar"></div>
+            <div class="session-timeout-body">
+                <div class="session-timeout-icon">&#9888;</div>
+                <div class="session-timeout-title">Session Expiring Soon</div>
+                <div class="session-timeout-msg">
+                    Your session is about to expire due to inactivity.<br>
+                    You will be logged out in:
+                </div>
+                <div id="sessionTimeoutCountdown" class="session-timeout-countdown">60</div>
+                <div class="session-timeout-actions">
+                    <button class="session-timeout-btn-stay" onclick="sessionTimeoutStay()">Stay Logged In</button>
+                    <button class="session-timeout-btn-logout" onclick="sessionTimeoutLogout()">Logout Now</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script>
         // User Management & Authentication
         let users = [];
@@ -2912,6 +3017,7 @@
         // Handle logout
         function handleLogout() {
             if (confirm('Are you sure you want to logout?')) {
+                stopSessionTimer();
                 currentUser = null;
                 sessionStorage.removeItem('cestiCurrentUser');
 
@@ -2922,6 +3028,102 @@
                 document.getElementById('loginUsername').value = '';
                 document.getElementById('loginPassword').value = '';
             }
+        }
+
+        // ========== SESSION INACTIVITY TIMEOUT ==========
+        // Logs user out after 5 minutes (300 seconds) of inactivity.
+        // Shows a 60-second warning before auto-logout.
+
+        const SESSION_TIMEOUT_MS = 5 * 60 * 1000;       // 5 minutes
+        const SESSION_WARNING_MS = 60 * 1000;            // warn 60s before timeout
+        let sessionInactivityTimer = null;
+        let sessionWarningTimer = null;
+        let sessionCountdownInterval = null;
+
+        // Events that count as user activity
+        const SESSION_ACTIVITY_EVENTS = ['mousemove', 'mousedown', 'keydown', 'scroll', 'touchstart', 'click'];
+
+        function startSessionTimer() {
+            stopSessionTimer(); // clear any existing timers
+            // Set a timer to show the warning 60s before expiry
+            sessionInactivityTimer = setTimeout(showSessionWarning, SESSION_TIMEOUT_MS - SESSION_WARNING_MS);
+            // Listen for user activity
+            SESSION_ACTIVITY_EVENTS.forEach(function(evt) {
+                document.addEventListener(evt, resetSessionTimer, { passive: true });
+            });
+        }
+
+        function stopSessionTimer() {
+            if (sessionInactivityTimer) { clearTimeout(sessionInactivityTimer); sessionInactivityTimer = null; }
+            if (sessionWarningTimer) { clearTimeout(sessionWarningTimer); sessionWarningTimer = null; }
+            if (sessionCountdownInterval) { clearInterval(sessionCountdownInterval); sessionCountdownInterval = null; }
+            SESSION_ACTIVITY_EVENTS.forEach(function(evt) {
+                document.removeEventListener(evt, resetSessionTimer);
+            });
+            hideSessionWarning();
+        }
+
+        function resetSessionTimer() {
+            // If the warning is visible, ignore activity (user must click a button)
+            var overlay = document.getElementById('sessionTimeoutOverlay');
+            if (overlay && overlay.classList.contains('show')) return;
+            // Restart the inactivity timer
+            if (sessionInactivityTimer) { clearTimeout(sessionInactivityTimer); }
+            sessionInactivityTimer = setTimeout(showSessionWarning, SESSION_TIMEOUT_MS - SESSION_WARNING_MS);
+        }
+
+        function showSessionWarning() {
+            var overlay = document.getElementById('sessionTimeoutOverlay');
+            var countdownEl = document.getElementById('sessionTimeoutCountdown');
+            if (!overlay || !countdownEl) return;
+
+            var secondsLeft = Math.floor(SESSION_WARNING_MS / 1000);
+            countdownEl.textContent = secondsLeft;
+            overlay.classList.add('show');
+
+            // Countdown every second
+            sessionCountdownInterval = setInterval(function() {
+                secondsLeft--;
+                if (secondsLeft <= 0) {
+                    clearInterval(sessionCountdownInterval);
+                    sessionCountdownInterval = null;
+                    sessionTimeoutLogout();
+                } else {
+                    countdownEl.textContent = secondsLeft;
+                }
+            }, 1000);
+
+            // Fallback: force logout after warning period
+            sessionWarningTimer = setTimeout(sessionTimeoutLogout, SESSION_WARNING_MS);
+        }
+
+        function hideSessionWarning() {
+            var overlay = document.getElementById('sessionTimeoutOverlay');
+            if (overlay) overlay.classList.remove('show');
+        }
+
+        // User clicked "Stay Logged In"
+        function sessionTimeoutStay() {
+            if (sessionWarningTimer) { clearTimeout(sessionWarningTimer); sessionWarningTimer = null; }
+            if (sessionCountdownInterval) { clearInterval(sessionCountdownInterval); sessionCountdownInterval = null; }
+            hideSessionWarning();
+            // Restart the full inactivity timer
+            if (sessionInactivityTimer) { clearTimeout(sessionInactivityTimer); }
+            sessionInactivityTimer = setTimeout(showSessionWarning, SESSION_TIMEOUT_MS - SESSION_WARNING_MS);
+        }
+
+        // User clicked "Logout Now" or timer expired
+        function sessionTimeoutLogout() {
+            stopSessionTimer();
+            currentUser = null;
+            sessionStorage.removeItem('cestiCurrentUser');
+
+            document.getElementById('loginPage').style.display = 'flex';
+            document.getElementById('mainDashboard').style.display = 'none';
+
+            // Clear login form
+            document.getElementById('loginUsername').value = '';
+            document.getElementById('loginPassword').value = '';
         }
 
         // ========== FORGOT PASSWORD / OTP FUNCTIONALITY ==========
@@ -3905,6 +4107,8 @@
                 // Render 2FA status and initialize cloud sync for restored session
                 render2FAStatus();
                 initializeCloudSync();
+                // Start session inactivity timer for restored session
+                startSessionTimer();
             } else {
                 // Show login page
                 document.getElementById('loginPage').style.display = 'flex';
@@ -7594,6 +7798,9 @@
 
             // Prompt user to sync from cloud on login
             promptSyncOnLogin();
+
+            // Start session inactivity timer
+            startSessionTimer();
         }
 
         // ============================================
