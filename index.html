@@ -3031,11 +3031,11 @@
         }
 
         // ========== SESSION INACTIVITY TIMEOUT ==========
-        // Logs user out after 5 minutes (300 seconds) of inactivity.
-        // Shows a 60-second warning before auto-logout.
+        // Logs user out after 1 minute (60 seconds) of inactivity.
+        // Shows a 15-second warning before auto-logout.
 
-        const SESSION_TIMEOUT_MS = 5 * 60 * 1000;       // 5 minutes
-        const SESSION_WARNING_MS = 60 * 1000;            // warn 60s before timeout
+        const SESSION_TIMEOUT_MS = 1 * 60 * 1000;       // 1 minute
+        const SESSION_WARNING_MS = 15 * 1000;            // warn 15s before timeout
         let sessionInactivityTimer = null;
         let sessionWarningTimer = null;
         let sessionCountdownInterval = null;
