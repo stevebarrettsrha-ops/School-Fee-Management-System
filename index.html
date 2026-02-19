@@ -1232,9 +1232,55 @@
             animation: pulse 1s infinite;
         }
 
+        .cloud-status-dot.auto-sync {
+            background: #3b82f6;
+            box-shadow: 0 0 6px #3b82f6;
+            animation: autoSyncPulse 2s infinite;
+        }
+
         @keyframes pulse {
             0%, 100% { opacity: 1; }
             50% { opacity: 0.5; }
+        }
+
+        @keyframes autoSyncPulse {
+            0%, 100% { box-shadow: 0 0 4px #3b82f6; }
+            50% { box-shadow: 0 0 12px #3b82f6, 0 0 20px rgba(59, 130, 246, 0.3); }
+        }
+
+        .auto-sync-indicator {
+            display: none;
+            align-items: center;
+            gap: 0.35rem;
+            font-size: 0.7rem;
+            color: #93c5fd;
+            padding: 0.15rem 0.5rem;
+            background: rgba(59, 130, 246, 0.15);
+            border-radius: 0.75rem;
+            border: 1px solid rgba(59, 130, 246, 0.3);
+        }
+
+        .auto-sync-indicator.active {
+            display: flex;
+        }
+
+        .auto-sync-indicator .auto-sync-icon {
+            animation: spin 2s linear infinite;
+        }
+
+        .auto-sync-indicator.paused .auto-sync-icon {
+            animation: none;
+        }
+
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+
+        .auto-sync-countdown {
+            font-size: 0.65rem;
+            color: #60a5fa;
+            font-variant-numeric: tabular-nums;
         }
 
         .cloud-sync-btn {
@@ -1768,6 +1814,17 @@
                                         Last saved by: --
                                     </div>
                                     <div class="cloud-dropdown-divider"></div>
+                                    <div class="cloud-dropdown-item" onclick="toggleAutoSync()" id="autoSyncToggleItem" style="display: flex; justify-content: space-between; align-items: center;">
+                                        <span style="display: flex; align-items: center; gap: 0.5rem;">
+                                            <span>🔁</span>
+                                            <span id="autoSyncToggleLabel">Enable Auto-Sync</span>
+                                        </span>
+                                        <span id="autoSyncToggleStatus" style="font-size: 0.7rem; padding: 0.1rem 0.4rem; border-radius: 0.25rem; background: #fee2e2; color: #dc2626;">OFF</span>
+                                    </div>
+                                    <div class="last-sync-info" id="autoSyncNextInfo" style="color: #3b82f6; font-size: 0.7rem; display: none;">
+                                        Next auto-sync: --
+                                    </div>
+                                    <div class="cloud-dropdown-divider"></div>
                                     <div class="cloud-dropdown-item danger" onclick="disconnectFromGoogleDrive()">
                                         <span>🔌</span>
                                         <span>Disconnect</span>
@@ -1775,6 +1832,12 @@
                                 </div>
                             </div>
                         </div>
+                    </div>
+
+                    <!-- Auto-Sync Indicator -->
+                    <div class="auto-sync-indicator" id="autoSyncIndicator">
+                        <span class="auto-sync-icon">🔄</span>
+                        <span id="autoSyncCountdown">Auto-sync: 15s</span>
                     </div>
 
                     <button class="theme-toggle-btn" onclick="toggleDarkMode()">
@@ -3017,6 +3080,7 @@
         // Handle logout
         function handleLogout() {
             if (confirm('Are you sure you want to logout?')) {
+                stopAutoSync();
                 stopSessionTimer();
                 currentUser = null;
                 sessionStorage.removeItem('cestiCurrentUser');
@@ -3114,6 +3178,7 @@
 
         // User clicked "Logout Now" or timer expired
         function sessionTimeoutLogout() {
+            stopAutoSync();
             stopSessionTimer();
             currentUser = null;
             sessionStorage.removeItem('cestiCurrentUser');
@@ -7799,6 +7864,9 @@
             // Prompt user to sync from cloud on login
             promptSyncOnLogin();
 
+            // Start auto-sync if cloud is connected
+            startAutoSyncOnLogin();
+
             // Start session inactivity timer
             startSessionTimer();
         }
@@ -8141,6 +8209,7 @@
         // Disconnect from Google Drive
         function disconnectFromGoogleDrive() {
             if (confirm('Are you sure you want to disconnect from Google Drive? Your local data will remain intact.')) {
+                stopAutoSync();
                 googleAccessToken = null;
                 isCloudConnected = false;
                 cloudFileId = null;
@@ -10305,6 +10374,404 @@
             }
         }
 
+        // Auto-start sync after login when cloud is connected
+        function startAutoSyncOnLogin() {
+            // Short delay to let login sync prompt complete first
+            setTimeout(() => {
+                if (isCloudConnected && googleAccessToken) {
+                    startAutoSync();
+                    // Perform an immediate sync on login to pull latest data
+                    performAutoSyncCycle();
+                    showNotification('Auto-sync active: syncing every 15 seconds', 'success');
+                }
+            }, 2000);
+        }
+
+        // ============================================
+        // AUTOMATIC SYNC ENGINE (15-second interval)
+        // ============================================
+
+        const AUTO_SYNC_INTERVAL_MS = 15 * 1000; // 15 seconds
+        let autoSyncIntervalId = null;
+        let autoSyncCountdownId = null;
+        let autoSyncEnabled = false;
+        let autoSyncSecondsRemaining = 15;
+        let isAutoSyncing = false;
+
+        // Start the auto-sync engine
+        function startAutoSync() {
+            if (autoSyncIntervalId) {
+                clearInterval(autoSyncIntervalId);
+            }
+            if (autoSyncCountdownId) {
+                clearInterval(autoSyncCountdownId);
+            }
+
+            autoSyncEnabled = true;
+            autoSyncSecondsRemaining = AUTO_SYNC_INTERVAL_MS / 1000;
+            localStorage.setItem('cestisAutoSyncEnabled', 'true');
+
+            // Update UI
+            updateAutoSyncUI();
+
+            // Start the countdown ticker (every second)
+            autoSyncCountdownId = setInterval(() => {
+                if (!autoSyncEnabled) return;
+                autoSyncSecondsRemaining--;
+                updateAutoSyncCountdown();
+            }, 1000);
+
+            // Start the sync interval
+            autoSyncIntervalId = setInterval(() => {
+                if (!autoSyncEnabled) return;
+                performAutoSyncCycle();
+            }, AUTO_SYNC_INTERVAL_MS);
+
+            console.log('Auto-sync started: every 15 seconds');
+        }
+
+        // Stop the auto-sync engine
+        function stopAutoSync() {
+            autoSyncEnabled = false;
+            localStorage.setItem('cestisAutoSyncEnabled', 'false');
+
+            if (autoSyncIntervalId) {
+                clearInterval(autoSyncIntervalId);
+                autoSyncIntervalId = null;
+            }
+            if (autoSyncCountdownId) {
+                clearInterval(autoSyncCountdownId);
+                autoSyncCountdownId = null;
+            }
+
+            updateAutoSyncUI();
+            console.log('Auto-sync stopped');
+        }
+
+        // Toggle auto-sync on/off (from dropdown menu)
+        function toggleAutoSync() {
+            if (autoSyncEnabled) {
+                stopAutoSync();
+                showNotification('Auto-sync disabled', 'info');
+            } else {
+                if (!isCloudConnected || !googleAccessToken) {
+                    showNotification('Connect to Google Drive first to enable auto-sync', 'warning');
+                    return;
+                }
+                startAutoSync();
+                showNotification('Auto-sync enabled (every 15 seconds)', 'success');
+                // Perform an immediate sync
+                performAutoSyncCycle();
+            }
+            // Close the cloud menu
+            const menu = document.getElementById('cloudDropdownMenu');
+            if (menu) menu.classList.remove('show');
+        }
+
+        // Update auto-sync UI elements
+        function updateAutoSyncUI() {
+            const indicator = document.getElementById('autoSyncIndicator');
+            const toggleLabel = document.getElementById('autoSyncToggleLabel');
+            const toggleStatus = document.getElementById('autoSyncToggleStatus');
+            const nextInfo = document.getElementById('autoSyncNextInfo');
+
+            if (autoSyncEnabled) {
+                indicator.classList.add('active');
+                toggleLabel.textContent = 'Disable Auto-Sync';
+                toggleStatus.textContent = 'ON';
+                toggleStatus.style.background = '#dcfce7';
+                toggleStatus.style.color = '#16a34a';
+                nextInfo.style.display = 'block';
+            } else {
+                indicator.classList.remove('active');
+                indicator.classList.remove('paused');
+                toggleLabel.textContent = 'Enable Auto-Sync';
+                toggleStatus.textContent = 'OFF';
+                toggleStatus.style.background = '#fee2e2';
+                toggleStatus.style.color = '#dc2626';
+                nextInfo.style.display = 'none';
+                const countdown = document.getElementById('autoSyncCountdown');
+                if (countdown) countdown.textContent = 'Auto-sync: off';
+            }
+        }
+
+        // Update the countdown display
+        function updateAutoSyncCountdown() {
+            const countdown = document.getElementById('autoSyncCountdown');
+            const nextInfo = document.getElementById('autoSyncNextInfo');
+
+            if (isAutoSyncing) {
+                if (countdown) countdown.textContent = 'Syncing now...';
+                if (nextInfo) nextInfo.textContent = 'Syncing now...';
+            } else if (autoSyncEnabled) {
+                const secs = Math.max(0, autoSyncSecondsRemaining);
+                if (countdown) countdown.textContent = `Auto-sync: ${secs}s`;
+                if (nextInfo) nextInfo.textContent = `Next auto-sync in ${secs}s`;
+            }
+        }
+
+        // Perform one auto-sync cycle (bidirectional merge)
+        async function performAutoSyncCycle() {
+            // Guard: prevent overlapping syncs
+            if (isAutoSyncing) {
+                console.log('Auto-sync: already in progress, skipping');
+                return;
+            }
+
+            // Guard: check connection
+            if (!isCloudConnected || !googleAccessToken) {
+                console.log('Auto-sync: not connected, pausing');
+                stopAutoSync();
+                showNotification('Auto-sync paused: not connected to cloud', 'warning');
+                return;
+            }
+
+            // Guard: check if we're online
+            if (!navigator.onLine) {
+                console.log('Auto-sync: offline, will retry next cycle');
+                return;
+            }
+
+            isAutoSyncing = true;
+            setCloudSyncing(true);
+            updateAutoSyncCountdown();
+
+            try {
+                // Find backup file if needed
+                if (!cloudFileId) {
+                    const savedFileId = localStorage.getItem('schoolFeeCloudFileId');
+                    if (savedFileId) {
+                        cloudFileId = savedFileId;
+                    } else {
+                        await findExistingBackupFile();
+                    }
+                }
+
+                // --- STEP 1: Download cloud data ---
+                let cloudData = null;
+                let existingUsers = [];
+                let existingStudents = [];
+                let existingPayments = [];
+                let existingDocuments = [];
+                let existingFeeStructure = null;
+
+                if (cloudFileId) {
+                    const response = await fetch(
+                        `https://www.googleapis.com/drive/v3/files/${cloudFileId}?alt=media`,
+                        {
+                            headers: {
+                                'Authorization': `Bearer ${googleAccessToken}`
+                            }
+                        }
+                    );
+
+                    if (!response.ok) {
+                        if (response.status === 401 || response.status === 403) {
+                            throw new Error('invalid_token');
+                        }
+                        throw new Error(`Cloud download failed (${response.status})`);
+                    }
+
+                    cloudData = await response.json();
+                    if (cloudData && cloudData.data) {
+                        existingUsers = Array.isArray(cloudData.data.users) ? cloudData.data.users : [];
+                        existingStudents = Array.isArray(cloudData.data.students) ? cloudData.data.students : [];
+                        existingPayments = Array.isArray(cloudData.data.payments) ? cloudData.data.payments : [];
+                        existingDocuments = Array.isArray(cloudData.data.documents) ? cloudData.data.documents : [];
+                        existingFeeStructure = cloudData.data.feeStructure || null;
+                    }
+                }
+
+                // --- STEP 2: Bidirectional merge (local <-> cloud) ---
+                let changesMade = false;
+
+                // Merge users: local wins on conflict, add cloud-only records to local
+                const mergedUsers = [...users];
+                existingUsers.forEach(cloudUser => {
+                    const localMatch = mergedUsers.find(u => u.id === cloudUser.id || u.username === cloudUser.username);
+                    if (!localMatch) {
+                        mergedUsers.push({ ...cloudUser });
+                        changesMade = true;
+                    }
+                });
+                // Add local-only users to merged set
+                users.forEach(localUser => {
+                    const inMerged = mergedUsers.find(u => u.id === localUser.id || u.username === localUser.username);
+                    if (!inMerged) {
+                        mergedUsers.push({ ...localUser });
+                        changesMade = true;
+                    }
+                });
+
+                // Merge students
+                const mergedStudents = [...students];
+                existingStudents.forEach(cloudStudent => {
+                    if (!mergedStudents.find(s => s.id === cloudStudent.id)) {
+                        mergedStudents.push({ ...cloudStudent });
+                        changesMade = true;
+                    }
+                });
+
+                // Merge payments
+                const mergedPayments = [...payments];
+                existingPayments.forEach(cloudPayment => {
+                    if (!mergedPayments.find(p => p.id === cloudPayment.id)) {
+                        mergedPayments.push({ ...cloudPayment });
+                        changesMade = true;
+                    }
+                });
+
+                // Merge documents
+                const mergedDocuments = [...documents];
+                existingDocuments.forEach(cloudDoc => {
+                    if (!mergedDocuments.find(d => d.id === cloudDoc.id)) {
+                        mergedDocuments.push({ ...cloudDoc });
+                        changesMade = true;
+                    }
+                });
+
+                // Check if local has anything cloud doesn't
+                const localHasNewUsers = users.some(u => !existingUsers.find(cu => cu.id === u.id || cu.username === u.username));
+                const localHasNewStudents = students.some(s => !existingStudents.find(cs => cs.id === s.id));
+                const localHasNewPayments = payments.some(p => !existingPayments.find(cp => cp.id === p.id));
+                const localHasNewDocuments = documents.some(d => !existingDocuments.find(cd => cd.id === d.id));
+                const localHasNewData = localHasNewUsers || localHasNewStudents || localHasNewPayments || localHasNewDocuments;
+
+                // --- STEP 3: Update local data if cloud had new records ---
+                if (changesMade) {
+                    users = mergedUsers;
+                    students = mergedStudents;
+                    payments = mergedPayments;
+                    documents = mergedDocuments;
+
+                    // Preserve fee structure from cloud if local hasn't changed
+                    if (existingFeeStructure && !feeStructure) {
+                        feeStructure = existingFeeStructure;
+                    }
+
+                    recalculateStudentTotals();
+                    saveUsers();
+                    saveData();
+
+                    // Refresh UI
+                    renderStudentsTable();
+                    renderPaymentsTable();
+                    renderDocumentsTable();
+                    renderUsersTable();
+                    populatePaymentStudentSelect();
+                    populateDocumentStudentSelect();
+                    updateDashboard();
+                }
+
+                // --- STEP 4: Upload merged data to cloud if anything changed ---
+                if (changesMade || localHasNewData) {
+                    const backupData = {
+                        version: '1.0',
+                        timestamp: new Date().toISOString(),
+                        savedBy: currentUser ? currentUser.username : 'Unknown',
+                        mergedBy: 'Auto-Sync',
+                        data: {
+                            users: mergedUsers,
+                            students: mergedStudents,
+                            payments: mergedPayments,
+                            documents: mergedDocuments,
+                            feeStructure: feeStructure
+                        }
+                    };
+
+                    const jsonContent = JSON.stringify(backupData, null, 2);
+                    const blob = new Blob([jsonContent], { type: 'application/json' });
+
+                    let uploadResponse;
+
+                    if (cloudFileId) {
+                        uploadResponse = await fetch(
+                            `https://www.googleapis.com/upload/drive/v3/files/${cloudFileId}?uploadType=media`,
+                            {
+                                method: 'PATCH',
+                                headers: {
+                                    'Authorization': `Bearer ${googleAccessToken}`,
+                                    'Content-Type': 'application/json'
+                                },
+                                body: blob
+                            }
+                        );
+                    } else {
+                        const metadata = {
+                            name: GOOGLE_DRIVE_CONFIG.BACKUP_FILE_NAME,
+                            parents: [GOOGLE_DRIVE_CONFIG.FOLDER_ID],
+                            mimeType: 'application/json'
+                        };
+
+                        const formData = new FormData();
+                        formData.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
+                        formData.append('file', blob);
+
+                        uploadResponse = await fetch(
+                            'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,name',
+                            {
+                                method: 'POST',
+                                headers: {
+                                    'Authorization': `Bearer ${googleAccessToken}`
+                                },
+                                body: formData
+                            }
+                        );
+
+                        if (uploadResponse.ok) {
+                            const result = await uploadResponse.json();
+                            cloudFileId = result.id;
+                            localStorage.setItem('schoolFeeCloudFileId', cloudFileId);
+                        }
+                    }
+
+                    if (!uploadResponse.ok) {
+                        const errorData = await uploadResponse.json().catch(() => ({}));
+                        throw new Error(errorData.error?.message || `Upload failed (${uploadResponse.status})`);
+                    }
+                }
+
+                // --- STEP 5: Update tracking ---
+                lastSyncTime = new Date();
+                localStorage.setItem('cestisLastSyncTime', lastSyncTime.toISOString());
+                updateLastSyncDisplay();
+
+                if (currentUser) {
+                    lastSavedBy = currentUser.username;
+                    cloudFileTimestamp = new Date().toISOString();
+                    updateLastSavedByDisplay();
+                }
+
+                // Reset countdown
+                autoSyncSecondsRemaining = AUTO_SYNC_INTERVAL_MS / 1000;
+
+                if (changesMade || localHasNewData) {
+                    console.log('Auto-sync: data merged successfully');
+                } else {
+                    console.log('Auto-sync: no changes detected');
+                }
+
+            } catch (error) {
+                console.error('Auto-sync error:', error);
+
+                if (error.message.includes('invalid_token') || error.message.includes('Invalid Credentials')) {
+                    showNotification('Auto-sync stopped: Google Drive session expired', 'error');
+                    localStorage.removeItem('cestisGoogleAccessToken');
+                    localStorage.removeItem('cestisGoogleTokenExpiry');
+                    updateCloudUI(false);
+                    stopAutoSync();
+                } else {
+                    console.log('Auto-sync: error occurred, will retry next cycle');
+                    // Reset countdown for retry
+                    autoSyncSecondsRemaining = AUTO_SYNC_INTERVAL_MS / 1000;
+                }
+            } finally {
+                isAutoSyncing = false;
+                setCloudSyncing(false);
+                updateAutoSyncCountdown();
+            }
+        }
+
         // ============================================
         // Forced Sync After Connection
         // ============================================
@@ -10521,6 +10988,12 @@
             const modal = document.getElementById('forcedSyncModal');
             if (modal) {
                 modal.remove();
+            }
+
+            // Start auto-sync after forced sync completes (if connected and not already running)
+            if (isCloudConnected && googleAccessToken && !autoSyncEnabled) {
+                startAutoSync();
+                showNotification('Auto-sync active: syncing every 15 seconds', 'success');
             }
         }
 
