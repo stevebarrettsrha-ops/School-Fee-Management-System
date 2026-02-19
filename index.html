@@ -10582,78 +10582,133 @@
                     }
                 }
 
-                // --- STEP 2: Bidirectional merge (local <-> cloud) ---
+                // --- STEP 2: Full bidirectional auto-merge (local <-> cloud) ---
+                // Merges all records: adds new, updates existing with most recent data
                 let changesMade = false;
 
-                // Merge users: local wins on conflict, add cloud-only records to local
-                const mergedUsers = [...users];
-                existingUsers.forEach(cloudUser => {
-                    const localMatch = mergedUsers.find(u => u.id === cloudUser.id || u.username === cloudUser.username);
-                    if (!localMatch) {
-                        mergedUsers.push({ ...cloudUser });
-                        changesMade = true;
-                    }
-                });
-                // Add local-only users to merged set
+                // Auto-merge users: start with cloud as base, overlay local on top,
+                // then add cloud-only records back (local edits win on conflict)
+                const mergedUsers = [...existingUsers];
                 users.forEach(localUser => {
-                    const inMerged = mergedUsers.find(u => u.id === localUser.id || u.username === localUser.username);
-                    if (!inMerged) {
+                    const cloudIdx = mergedUsers.findIndex(u => u.id === localUser.id || u.username === localUser.username);
+                    if (cloudIdx >= 0) {
+                        // Record exists in both — use local version (local wins)
+                        const cloudUser = mergedUsers[cloudIdx];
+                        if (JSON.stringify(cloudUser) !== JSON.stringify(localUser)) {
+                            mergedUsers[cloudIdx] = { ...localUser };
+                            changesMade = true;
+                        }
+                    } else {
+                        // Local-only record — add to merged
                         mergedUsers.push({ ...localUser });
                         changesMade = true;
                     }
                 });
+                // Detect cloud-only users (already in merged from cloud base spread)
+                existingUsers.forEach(cloudUser => {
+                    if (!users.find(u => u.id === cloudUser.id || u.username === cloudUser.username)) {
+                        // Cloud-only record — already in mergedUsers from spread, just flag change
+                        changesMade = true;
+                    }
+                });
 
-                // Merge students
-                const mergedStudents = [...students];
+                // Auto-merge students: update existing + add new from both sides
+                const mergedStudents = [...existingStudents];
+                students.forEach(localStudent => {
+                    const cloudIdx = mergedStudents.findIndex(s => s.id === localStudent.id);
+                    if (cloudIdx >= 0) {
+                        const cloudStudent = mergedStudents[cloudIdx];
+                        if (JSON.stringify(cloudStudent) !== JSON.stringify(localStudent)) {
+                            mergedStudents[cloudIdx] = { ...localStudent };
+                            changesMade = true;
+                        }
+                    } else {
+                        mergedStudents.push({ ...localStudent });
+                        changesMade = true;
+                    }
+                });
                 existingStudents.forEach(cloudStudent => {
-                    if (!mergedStudents.find(s => s.id === cloudStudent.id)) {
-                        mergedStudents.push({ ...cloudStudent });
+                    if (!students.find(s => s.id === cloudStudent.id)) {
                         changesMade = true;
                     }
                 });
 
-                // Merge payments
-                const mergedPayments = [...payments];
+                // Auto-merge payments: update existing + add new from both sides
+                const mergedPayments = [...existingPayments];
+                payments.forEach(localPayment => {
+                    const cloudIdx = mergedPayments.findIndex(p => p.id === localPayment.id);
+                    if (cloudIdx >= 0) {
+                        const cloudPayment = mergedPayments[cloudIdx];
+                        if (JSON.stringify(cloudPayment) !== JSON.stringify(localPayment)) {
+                            mergedPayments[cloudIdx] = { ...localPayment };
+                            changesMade = true;
+                        }
+                    } else {
+                        mergedPayments.push({ ...localPayment });
+                        changesMade = true;
+                    }
+                });
                 existingPayments.forEach(cloudPayment => {
-                    if (!mergedPayments.find(p => p.id === cloudPayment.id)) {
-                        mergedPayments.push({ ...cloudPayment });
+                    if (!payments.find(p => p.id === cloudPayment.id)) {
                         changesMade = true;
                     }
                 });
 
-                // Merge documents
-                const mergedDocuments = [...documents];
+                // Auto-merge documents: update existing + add new from both sides
+                const mergedDocuments = [...existingDocuments];
+                documents.forEach(localDoc => {
+                    const cloudIdx = mergedDocuments.findIndex(d => d.id === localDoc.id);
+                    if (cloudIdx >= 0) {
+                        const cloudDoc = mergedDocuments[cloudIdx];
+                        if (JSON.stringify(cloudDoc) !== JSON.stringify(localDoc)) {
+                            mergedDocuments[cloudIdx] = { ...localDoc };
+                            changesMade = true;
+                        }
+                    } else {
+                        mergedDocuments.push({ ...localDoc });
+                        changesMade = true;
+                    }
+                });
                 existingDocuments.forEach(cloudDoc => {
-                    if (!mergedDocuments.find(d => d.id === cloudDoc.id)) {
-                        mergedDocuments.push({ ...cloudDoc });
+                    if (!documents.find(d => d.id === cloudDoc.id)) {
                         changesMade = true;
                     }
                 });
 
-                // Check if local has anything cloud doesn't
-                const localHasNewUsers = users.some(u => !existingUsers.find(cu => cu.id === u.id || cu.username === u.username));
-                const localHasNewStudents = students.some(s => !existingStudents.find(cs => cs.id === s.id));
-                const localHasNewPayments = payments.some(p => !existingPayments.find(cp => cp.id === p.id));
-                const localHasNewDocuments = documents.some(d => !existingDocuments.find(cd => cd.id === d.id));
-                const localHasNewData = localHasNewUsers || localHasNewStudents || localHasNewPayments || localHasNewDocuments;
+                // Auto-merge fee structure: merge term-level changes
+                let mergedFeeStructure = { ...feeStructure };
+                if (existingFeeStructure) {
+                    Object.keys(existingFeeStructure).forEach(key => {
+                        if (!mergedFeeStructure[key]) {
+                            // Cloud has a fee structure entry local doesn't
+                            mergedFeeStructure[key] = { ...existingFeeStructure[key] };
+                            changesMade = true;
+                        }
+                    });
+                    // Local entries always preserved (local wins)
+                }
 
-                // --- STEP 3: Update local data if cloud had new records ---
-                if (changesMade) {
+                // --- STEP 3: Update local data with full merged set ---
+                const localNeedsUpdate = changesMade ||
+                    mergedUsers.length !== users.length ||
+                    mergedStudents.length !== students.length ||
+                    mergedPayments.length !== payments.length ||
+                    mergedDocuments.length !== documents.length;
+
+                if (localNeedsUpdate) {
                     users = mergedUsers;
                     students = mergedStudents;
                     payments = mergedPayments;
                     documents = mergedDocuments;
-
-                    // Preserve fee structure from cloud if local hasn't changed
-                    if (existingFeeStructure && !feeStructure) {
-                        feeStructure = existingFeeStructure;
-                    }
+                    feeStructure = mergedFeeStructure;
 
                     recalculateStudentTotals();
                     saveUsers();
                     saveData();
+                    saveFeeStructure();
 
                     // Refresh UI
+                    renderFeeStructure();
                     renderStudentsTable();
                     renderPaymentsTable();
                     renderDocumentsTable();
@@ -10663,19 +10718,19 @@
                     updateDashboard();
                 }
 
-                // --- STEP 4: Upload merged data to cloud if anything changed ---
-                if (changesMade || localHasNewData) {
+                // --- STEP 4: Upload fully merged data to cloud ---
+                if (changesMade || localNeedsUpdate) {
                     const backupData = {
                         version: '1.0',
                         timestamp: new Date().toISOString(),
                         savedBy: currentUser ? currentUser.username : 'Unknown',
-                        mergedBy: 'Auto-Sync',
+                        mergedBy: 'Auto-Merge',
                         data: {
                             users: mergedUsers,
                             students: mergedStudents,
                             payments: mergedPayments,
                             documents: mergedDocuments,
-                            feeStructure: feeStructure
+                            feeStructure: mergedFeeStructure
                         }
                     };
 
@@ -10745,10 +10800,10 @@
                 // Reset countdown
                 autoSyncSecondsRemaining = AUTO_SYNC_INTERVAL_MS / 1000;
 
-                if (changesMade || localHasNewData) {
-                    console.log('Auto-sync: data merged successfully');
+                if (changesMade || localNeedsUpdate) {
+                    console.log('Auto-sync: data auto-merged successfully');
                 } else {
-                    console.log('Auto-sync: no changes detected');
+                    console.log('Auto-sync: all data in sync, no changes');
                 }
 
             } catch (error) {
